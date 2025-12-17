@@ -17,6 +17,9 @@ env/
 .env.test.local
 .env.production.local
 
+# Config files with secrets
+config.json
+
 # Build outputs
 dist/
 build/

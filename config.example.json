@@ -1,0 +1,16 @@
+{
+  "azureDevOps": {
+    "pat": "YOUR_PERSONAL_ACCESS_TOKEN_HERE",
+    "organization": "your-organization",
+    "project": "your-project",
+    "repository": "your-repository",
+    "userEmail": "optional-filter-by-email@example.com"
+  },
+  "settings": {
+    "year": 2025,
+    "includeWorkItems": false,
+    "includeBuilds": false,
+    "includePullRequests": true,
+    "includeCommits": true
+  }
+}
