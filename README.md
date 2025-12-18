@@ -52,6 +52,7 @@ cp .env.example .env
 ```
 
 When all values are present, the app will:
+
 - ✅ Skip the landing page form
 - ✅ Automatically fetch and display stats
 - ✅ Use server-side PAT (never sent to browser)
@@ -59,6 +60,7 @@ When all values are present, the app will:
 **2. Manual Configuration (Default)**
 
 If `.env` is missing or incomplete:
+
 - ❌ Shows the configuration form on landing page
 - 👤 Users enter their own PAT and details
 - 🔒 PAT stored only in browser session
@@ -129,14 +131,33 @@ const client = new AzureDevOpsClient({
 
 ### Debugging
 
-If the app gets stuck on "Fetching data" or you encounter errors, comprehensive logging is available:
+If the app gets stuck on "Fetching data" or you encounter errors, comprehensive logging is built in:
 
-- **Server logs** appear in your terminal (running `npm run dev`)
-- **Request tracking** with unique IDs for each API call
-- **Timing information** for all stages (fetch, aggregate, cache)
-- **Detailed error messages** with HTTP status codes
+**View logs in your terminal** running `npm run dev`:
 
-See [DEBUGGING.md](DEBUGGING.md) for the complete debugging guide with log interpretation and troubleshooting steps.
+```
+[1702835400000] 🚀 API Request started
+[1702835400000] 🔑 PAT present: true
+[1702835400000] 📋 Parameters: { organization: 'microsoft', ... }
+📜 fetchCommits: Starting for microsoft/vscode/vscode-repo
+🌐 GET /_apis/git/repositories/vscode-repo/commits
+✅ Cache HIT for /_apis/git/repositories/vscode-repo/commits
+✅ API response received in 1234ms
+🎉 Request completed successfully in 2385ms
+```
+
+**Common Issues:**
+
+| Issue                 | Log to Look For                    | Solution                          |
+| --------------------- | ---------------------------------- | --------------------------------- |
+| Stuck on loading      | Last log before it stops           | Check network/credentials         |
+| Authentication failed | `❌ 401` or `🔑 Authentication`    | Verify PAT token                  |
+| Resource not found    | `❌ 404`                           | Check org/project/repo names      |
+| Rate limiting         | `❌ 429`                           | Wait and retry, or use cache      |
+| Slow performance      | `⏱️ API response received in XXms` | Large repo or network issue       |
+| Empty data            | `Commits: 0, PRs: 0`               | Check date range and user filters |
+
+**Emoji Log Key:** 🚀 Request | 🔑 Auth | 📋 Params | 🌐 HTTP | ✅ Success | ❌ Error | ⚪ Cache miss | 💾 Cache write | 🎉 Complete
 
 ### Project Structure
 
@@ -189,8 +210,6 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on deploying to:
 | [plan.md](plan.md)                                                 | Architecture and implementation details |
 | [tasks.md](tasks.md)                                               | Future enhancements and roadmap         |
 | [DEPLOYMENT.md](DEPLOYMENT.md)                                     | Deployment guides                       |
-| [CACHING.md](CACHING.md)                                           | API response caching documentation      |
-| [DEBUGGING.md](DEBUGGING.md)                                       | Debugging guide with log interpretation |
 | [.github/copilot-instructions.md](.github/copilot-instructions.md) | Coding guidelines                       |
 
 ---

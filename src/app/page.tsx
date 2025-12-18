@@ -20,7 +20,9 @@ export default function Home() {
         const data = await response.json();
 
         if (data.hasConfig && data.config) {
-          console.log("✅ Server config found, auto-navigating to wrapped page");
+          console.log(
+            "✅ Server config found, auto-navigating to wrapped page"
+          );
           // Store server config in sessionStorage with a flag
           sessionStorage.setItem(
             "ado-wrapped-config",

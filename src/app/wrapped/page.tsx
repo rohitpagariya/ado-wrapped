@@ -27,7 +27,8 @@ export default function WrappedPage() {
           return;
         }
 
-        const config: WrappedConfig & { useServerPAT?: boolean } = JSON.parse(configStr);
+        const config: WrappedConfig & { useServerPAT?: boolean } =
+          JSON.parse(configStr);
 
         // Build API URL with query parameters
         // If using server config, don't send params (API will load from .env)
@@ -52,10 +53,14 @@ export default function WrappedPage() {
               Authorization: `Bearer ${config.pat}`,
             };
 
-        const url = config.useServerPAT ? "/api/stats" : `/api/stats?${params.toString()}`;
-        
-        console.log(`Fetching stats from ${url}`, { useServerPAT: config.useServerPAT });
-        
+        const url = config.useServerPAT
+          ? "/api/stats"
+          : `/api/stats?${params.toString()}`;
+
+        console.log(`Fetching stats from ${url}`, {
+          useServerPAT: config.useServerPAT,
+        });
+
         const response = await fetch(url, { headers });
 
         if (!response.ok) {

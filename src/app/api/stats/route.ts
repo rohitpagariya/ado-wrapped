@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
         userEmail = userEmail || serverConfig.userEmail || null;
         console.log(`[${requestId}] ✅ Using server config`);
       } else {
-        console.error(`[${requestId}] ❌ Invalid server config:`, validation.errors);
+        console.error(
+          `[${requestId}] ❌ Invalid server config:`,
+          validation.errors
+        );
       }
     }
 
