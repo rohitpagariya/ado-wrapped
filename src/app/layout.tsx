@@ -1,12 +1,27 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Azure DevOps Wrapped",
-  description: "Your year in code - Azure DevOps edition",
+  description:
+    "Your year in code - discover insights, stats, and achievements from your Azure DevOps repositories",
+  keywords: [
+    "Azure DevOps",
+    "Git",
+    "Statistics",
+    "Year in Review",
+    "Developer Stats",
+  ],
+  authors: [{ name: "ADO Wrapped" }],
+  viewport: "width=device-width, initial-scale=1",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "white" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({
@@ -16,7 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <Toaster />
+      </body>
     </html>
   );
 }

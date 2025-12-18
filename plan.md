@@ -8,26 +8,24 @@ Got it! Let me update the plan with your constraints. This simplifies things sig
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Frontend (Next.js Static)                    │
-│   • Config page: Enter PAT, Org, Project, Repo, Year           │
-│   • Stats dashboard with animated cards                         │
-│   • Mobile-responsive design                                    │
+│              Next.js 14 Full-Stack Application                  │
+│                                                                 │
+│  Frontend (React/App Router)    Backend (API Routes)           │
+│  • Config page                  • /api/stats endpoint           │
+│  • Stats dashboard              • /api/export endpoint          │
+│  • Animated cards               • Azure DevOps client           │
+│  • Mobile responsive            • Stats aggregation             │
+│                                                                 │
+│  Shared: TypeScript types, utility functions, ADO client       │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                 Azure Static Web Apps (SWA)                     │
-│   • Static frontend assets                                      │
-│   • Azure Functions (API routes)                                │
-│   • Integrated auth (optional future)                           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│               Azure Functions (Serverless APIs)                 │
-│   • /api/stats - Fetch & aggregate Azure DevOps data           │
-│   • /api/export - Save stats to JSON/MD file                   │
-│   • PAT passed via header (stored in browser localStorage)     │
+│              Deployment (Choose One)                            │
+│  • Azure App Service (Node.js runtime)                         │
+│  • Vercel (native Next.js hosting)                             │
+│  • Docker container (any platform)                              │
+│  • Any Node.js hosting service                                 │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -42,131 +40,106 @@ Got it! Let me update the plan with your constraints. This simplifies things sig
 
 ### Tech Stack (Final)
 
-| Layer           | Technology               | Notes                                           |
-| --------------- | ------------------------ | ----------------------------------------------- |
-| **Framework**   | Next.js 14 (App Router)  | Static export + API routes via Azure Functions  |
-| **Language**    | TypeScript               |                                                 |
-| **Styling**     | Tailwind CSS + shadcn/ui |                                                 |
-| **Charts**      | **Recharts**             | Good React integration, responsive, lightweight |
-| **Animations**  | Framer Motion            | Story-style card transitions                    |
-| **Auth**        | PAT token (localStorage) | User provides, stored client-side               |
-| **Persistence** | JSON file download       | Export stats as JSON/MD to user's machine       |
-| **Hosting**     | Azure Static Web Apps    | Free tier available                             |
-| **CI/CD**       | GitHub Actions           | Auto-configured by Azure CLI                    |
+| Layer           | Technology                 | Notes                                           |
+| --------------- | -------------------------- | ----------------------------------------------- |
+| **Framework**   | Next.js 14 (App Router)    | Full-stack with built-in API routes             |
+| **Language**    | TypeScript                 |                                                 |
+| **Styling**     | Tailwind CSS + shadcn/ui   |                                                 |
+| **Charts**      | **Recharts**               | Good React integration, responsive, lightweight |
+| **Animations**  | Framer Motion              | Story-style card transitions                    |
+| **Auth**        | PAT token (localStorage)   | User provides, stored client-side               |
+| **Persistence** | JSON file download         | Export stats as JSON/MD to user's machine       |
+| **Hosting**     | Vercel / Azure App Service | Or any Node.js platform                         |
+| **CI/CD**       | GitHub Actions             | Standard Next.js deployment                     |
 
 ---
 
-### CI/CD Setup Plan (Azure CLI + GitHub CLI)
+### Deployment Options
 
-#### Prerequisites
+#### Option 1: Vercel (Recommended - Easiest)
 
 ```bash
-# Install CLIs if not present
-az extension add --name staticwebapp
-gh auth login
+# Install Vercel CLI
+npm i -g vercel
+
+# Deploy from project directory
+vercel
+
+# For production
+vercel --prod
 ```
 
-#### Step 1: Create GitHub Repository
+Vercel automatically:
+
+- Detects Next.js configuration
+- Sets up environment variables through dashboard
+- Provides automatic preview deployments for PRs
+- Handles scaling and CDN
+
+#### Option 2: Azure App Service
 
 ```bash
-# Create and clone repo
-gh repo create azure-devops-wrapped --private --clone
-cd azure-devops-wrapped
-```
-
-#### Step 2: Create Azure Static Web App
-
-```bash
-# Login to Azure
+# Install Azure CLI
 az login
 
-# Create resource group (if needed)
-az group create --name rg-devops-wrapped --location westus2
+# Create resource group
+az group create --name rg-devops-wrapped --location eastus
 
-# Create Static Web App linked to GitHub
-az staticwebapp create \
-  --name swa-devops-wrapped \
+# Create App Service plan (Linux, Node.js)
+az appservice plan create \
+  --name asp-devops-wrapped \
   --resource-group rg-devops-wrapped \
-  --source https://github.com/<your-username>/azure-devops-wrapped \
-  --location "West US 2" \
+  --is-linux \
+  --sku B1
+
+# Create web app
+az webapp create \
+  --name ado-wrapped \
+  --resource-group rg-devops-wrapped \
+  --plan asp-devops-wrapped \
+  --runtime "NODE:20-lts"
+
+# Configure deployment from GitHub
+az webapp deployment source config \
+  --name ado-wrapped \
+  --resource-group rg-devops-wrapped \
+  --repo-url https://github.com/<username>/ado-wrapped \
   --branch main \
-  --app-location "/" \
-  --api-location "api" \
-  --output-location ".next" \
-  --login-with-github
-```
+  --manual-integration
 
-This command:
-
-- Creates the Static Web App resource
-- Connects to your GitHub repo
-- Auto-generates a GitHub Actions workflow file
-- Sets up the deployment token as a GitHub secret
-
-#### Step 3: Verify GitHub Actions Workflow
-
-```bash
-# Check the workflow was created
-gh workflow list
-
-# View workflow runs
-gh run list --workflow=azure-static-web-apps-*.yml
-```
-
-#### Step 4: Environment Variables (for API)
-
-```bash
-# Set environment variables for the Static Web App
-az staticwebapp appsettings set \
-  --name swa-devops-wrapped \
+# Set startup command
+az webapp config set \
+  --name ado-wrapped \
   --resource-group rg-devops-wrapped \
-  --setting-names \
-    AZURE_DEVOPS_DEFAULT_ORG="your-org" \
-    AZURE_DEVOPS_DEFAULT_PROJECT="your-project"
+  --startup-file "npm start"
 ```
 
-#### Generated GitHub Actions Workflow
+#### Option 3: Docker Container
 
-Azure CLI auto-generates this, but here's what it looks like:
+```dockerfile
+# Dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
 
-```yaml
-# .github/workflows/azure-static-web-apps-<random>.yml
-name: Azure Static Web Apps CI/CD
+FROM node:20-alpine
+WORKDIR /app
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/public ./public
 
-on:
-  push:
-    branches: [main]
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches: [main]
+EXPOSE 3000
+CMD ["npm", "start"]
+```
 
-jobs:
-  build_and_deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Deploy
-        uses: Azure/static-web-apps-deploy@v1
-        with:
-          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          action: "upload"
-          app_location: "/"
-          api_location: "api"
-          output_location: ".next"
+```bash
+# Build and run
+docker build -t ado-wrapped .
+docker run -p 3000:3000 ado-wrapped
 ```
 
 ---
@@ -174,18 +147,14 @@ jobs:
 ### Project Structure (Updated)
 
 ```
-azure-devops-wrapped/
-├── .github/
-│   └── workflows/
-│       └── azure-static-web-apps-*.yml  # Auto-generated
-├── api/                                  # Azure Functions
-│   ├── stats/
-│   │   └── index.ts                     # GET /api/stats
-│   ├── host.json
-│   ├── package.json
-│   └── tsconfig.json
+ado-wrapped/
 ├── src/
 │   ├── app/
+│   │   ├── api/                         # Next.js API Routes
+│   │   │   ├── stats/
+│   │   │   │   └── route.ts            # GET /api/stats
+│   │   │   └── export/
+│   │   │       └── route.ts            # POST /api/export (optional)
 │   │   ├── page.tsx                     # Landing/Config page
 │   │   ├── wrapped/
 │   │   │   └── page.tsx                 # Stats dashboard
@@ -214,7 +183,6 @@ azure-devops-wrapped/
 │   └── types/
 │       └── index.ts
 ├── public/
-├── staticwebapp.config.json             # SWA routing config
 ├── next.config.js
 ├── tailwind.config.ts
 ├── package.json
@@ -296,33 +264,39 @@ interface WrappedStats {
 
 ---
 
-### Azure Function: `/api/stats`
+### Next.js API Route: `/api/stats`
 
 ```typescript
-// api/stats/index.ts
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
-import { fetchCommits } from "../lib/commits";
-import { fetchPullRequests } from "../lib/pullRequests";
-import { fetchWorkItems } from "../lib/workItems";
-import { fetchBuilds } from "../lib/builds";
-import { aggregateStats } from "../lib/aggregator";
+// src/app/api/stats/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { fetchCommits } from "@/lib/azure-devops/commits";
+import { fetchPullRequests } from "@/lib/azure-devops/pullRequests";
+import { fetchWorkItems } from "@/lib/azure-devops/workItems";
+import { fetchBuilds } from "@/lib/azure-devops/builds";
+import { aggregateStats } from "@/lib/azure-devops/aggregator";
 
-const httpTrigger: AzureFunction = async (
-  context: Context,
-  req: HttpRequest
-): Promise<void> => {
-  const pat = req.headers["x-azure-devops-pat"];
-  const { organization, project, repository, year, userEmail } = req.query;
-
-  if (!pat || !organization || !project || !repository || !year) {
-    context.res = {
-      status: 400,
-      body: { error: "Missing required parameters" },
-    };
-    return;
-  }
-
+export async function GET(request: NextRequest) {
   try {
+    // Get PAT from Authorization header
+    const authHeader = request.headers.get("authorization");
+    const pat = authHeader?.replace("Bearer ", "");
+
+    // Get parameters from URL search params
+    const searchParams = request.nextUrl.searchParams;
+    const organization = searchParams.get("organization");
+    const project = searchParams.get("project");
+    const repository = searchParams.get("repository");
+    const year = searchParams.get("year");
+    const userEmail = searchParams.get("userEmail");
+
+    // Validate required parameters
+    if (!pat || !organization || !project || !repository || !year) {
+      return NextResponse.json(
+        { error: "Missing required parameters" },
+        { status: 400 }
+      );
+    }
+
     const startDate = `${year}-01-01`;
     const endDate = `${year}-12-31`;
 
@@ -361,24 +335,19 @@ const httpTrigger: AzureFunction = async (
         project,
         repository,
         year: parseInt(year),
-        userEmail,
+        userEmail: userEmail || undefined,
       },
     });
 
-    context.res = {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-      body: stats,
-    };
-  } catch (error) {
-    context.res = {
-      status: 500,
-      body: { error: error.message },
-    };
+    return NextResponse.json(stats);
+  } catch (error: any) {
+    console.error("Stats API error:", error);
+    return NextResponse.json(
+      { error: error.message || "Internal server error" },
+      { status: 500 }
+    );
   }
-};
-
-export default httpTrigger;
+}
 ```
 
 ---
@@ -457,14 +426,15 @@ function downloadBlob(blob: Blob, filename: string): void {
 
 ### Implementation Phases (Updated)
 
-| Phase       | Duration | Deliverables                                                      |
-| ----------- | -------- | ----------------------------------------------------------------- |
-| **Phase 1** | 2-3 days | Project scaffold, Azure SWA setup, CI/CD pipeline, config form UI |
-| **Phase 2** | 2-3 days | Commits API integration, commit stats aggregation, basic charts   |
-| **Phase 3** | 2 days   | PR and work items integration, additional stats                   |
-| **Phase 4** | 2 days   | Build stats, insights generation, personality detection           |
-| **Phase 5** | 2 days   | Story-style UI with animations, JSON/MD export                    |
-| **Phase 6** | 1 day    | Polish, mobile testing, documentation                             |
+| Phase       | Duration | Deliverables                                                       |
+| ----------- | -------- | ------------------------------------------------------------------ |
+| **Phase 1** | 1-2 days | Next.js project setup, dependencies, basic structure               |
+| **Phase 2** | 2-3 days | Azure DevOps API client, commits/PRs/work items/builds integration |
+| **Phase 3** | 1 day    | Next.js API routes for stats and export endpoints                  |
+| **Phase 4** | 2 days   | Configuration UI, landing page, form with validation               |
+| **Phase 5** | 3 days   | Stats dashboard, story viewer, charts, visualizations              |
+| **Phase 6** | 2 days   | Export functionality, animations, polish, mobile responsiveness    |
+| **Phase 7** | 1 day    | Testing, documentation, deployment setup                           |
 
 **Total: ~2 weeks**
 
@@ -473,27 +443,29 @@ function downloadBlob(blob: Blob, filename: string): void {
 ### Quick Start Commands
 
 ```bash
-# 1. Create the project
-npx create-next-app@latest azure-devops-wrapped --typescript --tailwind --app --src-dir
+# 1. Clone/navigate to the project
+cd ado-wrapped
 
-# 2. Add dependencies
-cd azure-devops-wrapped
-npm install recharts framer-motion lucide-react
-npm install -D @types/node
+# 2. Install dependencies
+npm install
 
-# 3. Initialize shadcn/ui
-npx shadcn@latest init
-npx shadcn@latest add button card input label tabs
+# 3. Set up environment variables
+cp .env.example .env
+# Edit .env with your Azure DevOps credentials
 
-# 4. Create GitHub repo and push
-gh repo create azure-devops-wrapped --private --source=. --push
+# 4. Run development server
+npm run dev
 
-# 5. Create Azure Static Web App
-az staticwebapp create \
-  --name swa-devops-wrapped \
-  --resource-group rg-devops-wrapped \
-  --source https://github.com/<username>/azure-devops-wrapped \
-  --location "West US 2" \
-  --branch main \
-  --login-with-github
+# 5. Build for production
+npm run build
+
+# 6. Start production server locally
+npm start
+
+# 7. Deploy to Vercel (easiest)
+npm i -g vercel
+vercel
+
+# OR deploy to Azure App Service
+az webapp up --name ado-wrapped --runtime "NODE:20-lts"
 ```

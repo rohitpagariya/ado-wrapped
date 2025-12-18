@@ -6,28 +6,25 @@ This document contains all tasks required to implement the Azure DevOps Wrapped 
 
 ## Configuration
 
-Before starting, copy `config.example.json` to `config.json` and fill in your Azure DevOps credentials:
+Before starting, copy `.env.example` to `.env` and fill in your Azure DevOps credentials:
 
-```json
-{
-  "azureDevOps": {
-    "pat": "YOUR_PERSONAL_ACCESS_TOKEN_HERE",
-    "organization": "your-organization",
-    "project": "your-project",
-    "repository": "your-repository",
-    "userEmail": "optional-filter-by-email@example.com"
-  },
-  "settings": {
-    "year": 2024,
-    "includeWorkItems": true,
-    "includeBuilds": true,
-    "includePullRequests": true,
-    "includeCommits": true
-  }
-}
+```env
+# Required settings
+ADO_ORGANIZATION=your-organization
+ADO_PROJECT=your-project
+ADO_REPOSITORY=your-repository
+ADO_PAT=your-personal-access-token-here
+
+# Optional settings
+ADO_USER_EMAIL=your-email@example.com
+ADO_YEAR=2024
+ADO_INCLUDE_COMMITS=true
+ADO_INCLUDE_PULL_REQUESTS=true
+ADO_INCLUDE_WORK_ITEMS=false
+ADO_INCLUDE_BUILDS=false
 ```
 
-> ⚠️ **Important**: `config.json` is in `.gitignore` and should NEVER be committed. Only `config.example.json` is tracked.
+> ⚠️ **Important**: `.env` is in `.gitignore` and should NEVER be committed. Only `.env.example` is tracked.
 
 ---
 
@@ -100,11 +97,11 @@ Before starting, copy `config.example.json` to `config.json` and fill in your Az
 - **Description**: Create the folder structure as defined in the plan
 - **Directories to Create**:
   ```
+  src/app/api/stats/
+  src/app/api/export/
   src/components/
   src/lib/azure-devops/
   src/types/
-  api/stats/
-  api/lib/
   ```
 - **Acceptance Criteria**:
   - [ ] All directories created
@@ -129,17 +126,17 @@ Before starting, copy `config.example.json` to `config.json` and fill in your Az
   - [ ] All interfaces defined with proper types
   - [ ] Types exported for use across project
 
-### Task 1.6: Configure Static Web App
+### Task 1.6: Update Next.js Configuration
 
 - **Status**: `[ ]`
 - **Depends On**: 1.1
 - **Parallel Group**: B
-- **Description**: Create the Azure Static Web Apps configuration file
-- **File**: `staticwebapp.config.json`
+- **Description**: Update next.config.js for optimal API route and deployment configuration
+- **File**: `next.config.js`
 - **Acceptance Criteria**:
-  - [ ] Routing configured for SPA
-  - [ ] API routes configured
-  - [ ] Navigation fallback set up
+  - [ ] Configuration supports API routes
+  - [ ] Production build optimized
+  - [ ] Environment variables properly handled
 
 ### Task 1.7: Create GitHub Repository
 
@@ -157,31 +154,18 @@ Before starting, copy `config.example.json` to `config.json` and fill in your Az
   - [ ] GitHub repo created
   - [ ] Initial commit pushed
 
-### Task 1.8: Create Azure Static Web App
+### Task 1.8: Set Up Deployment Documentation
 
 - **Status**: `[ ]`
 - **Depends On**: 1.7
 - **Parallel Group**: E
-- **Description**: Provision Azure Static Web App and connect to GitHub
-- **Commands**:
-  ```bash
-  az group create --name rg-devops-wrapped --location westus2
-  az staticwebapp create \
-    --name swa-devops-wrapped \
-    --resource-group rg-devops-wrapped \
-    --source https://github.com/<username>/azure-devops-wrapped \
-    --location "West US 2" \
-    --branch main \
-    --app-location "/" \
-    --api-location "api" \
-    --output-location ".next" \
-    --login-with-github
-  ```
+- **Description**: Document deployment options for Vercel and Azure App Service
+- **File**: `DEPLOYMENT.md`
 - **Acceptance Criteria**:
-  - [ ] Resource group created
-  - [ ] Static Web App created
-  - [ ] GitHub Actions workflow auto-generated
-  - [ ] Deployment token stored as GitHub secret
+  - [ ] Vercel deployment instructions added
+  - [ ] Azure App Service deployment instructions added
+  - [ ] Docker deployment option documented
+  - [ ] Environment variable configuration documented
 
 ---
 
@@ -313,53 +297,64 @@ Before starting, copy `config.example.json` to `config.json` and fill in your Az
 
 ---
 
-## Phase 3: Azure Functions API
+## Phase 3: Next.js API Routes
 
-### Task 3.1: Set Up Azure Functions Project
+### Task 3.1: Create Stats API Route
+
+- **Status**: `[ ]`
+- **Depends On**: 2.7, 1.4
+- **Parallel Group**: I
+- **Description**: Create the Next.js API route for fetching stats
+- **File**: `src/app/api/stats/route.ts`
+- **Features**:
+  - Accept PAT via Authorization header (Bearer token)
+  - Accept org, project, repo, year via URL search params
+  - Call Azure DevOps client functions
+  - Call aggregator and return stats
+  - Error handling with proper HTTP status codes
+- **Acceptance Criteria**:
+  - [ ] GET endpoint at /api/stats works
+  - [ ] Validates required parameters (400 if missing)
+  - [ ] Returns WrappedStats JSON on success
+  - [ ] Proper error responses (400, 500)
+  - [ ] Uses Next.js 14 App Router conventions
+
+### Task 3.2: Create Export API Route (Optional)
 
 - **Status**: `[ ]`
 - **Depends On**: 1.4
-- **Parallel Group**: F
-- **Description**: Initialize the Azure Functions project in the api/ directory
-- **Files**:
-  - `api/host.json`
-  - `api/package.json`
-  - `api/tsconfig.json`
-- **Acceptance Criteria**:
-  - [ ] Azure Functions v4 configured
-  - [ ] TypeScript configured
-  - [ ] Local development works
-
-### Task 3.2: Create Stats API Endpoint
-
-- **Status**: `[ ]`
-- **Depends On**: 3.1, 2.7
 - **Parallel Group**: I
-- **Description**: Create the /api/stats HTTP trigger function
-- **File**: `api/stats/index.ts`, `api/stats/function.json`
+- **Description**: Create an optional API route for server-side export generation
+- **File**: `src/app/api/export/route.ts`
+- **Note**: Export is primarily handled client-side, but this provides server alternative
 - **Features**:
-  - Accept PAT via header
-  - Accept org, project, repo, year via query params
-  - Call aggregator and return stats
-  - Error handling
-- **Acceptance Criteria**:
-  - [ ] Endpoint accessible at /api/stats
-  - [ ] Validates required parameters
-  - [ ] Returns WrappedStats JSON
-  - [ ] Proper error responses (400, 500)
-
-### Task 3.3: Create Export API Endpoint (Optional)
-
-- **Status**: `[ ]`
-- **Depends On**: 3.1
-- **Parallel Group**: I
-- **Description**: Create an optional /api/export endpoint for server-side generation
-- **File**: `api/export/index.ts`, `api/export/function.json`
-- **Note**: Export is handled client-side, but this provides an alternative
+  - POST endpoint accepting stats data
+  - Generate JSON or Markdown based on query param
+  - Return file as download
 - **Acceptance Criteria**:
   - [ ] Endpoint generates JSON file
   - [ ] Endpoint generates Markdown file
-  - [ ] Proper content-type headers
+  - [ ] Proper content-type and content-disposition headers
+  - [ ] File download works correctly
+
+### Task 3.3: Test API Routes Locally
+
+- **Status**: `[ ]`
+- **Depends On**: 3.1
+- **Parallel Group**: J
+- **Description**: Verify API routes work with local development server
+- **Commands**:
+  ```bash
+  npm run dev
+  # Test with curl or Postman
+  curl -H "Authorization: Bearer YOUR_PAT" \
+    "http://localhost:3000/api/stats?organization=ORG&project=PROJ&repository=REPO&year=2024"
+  ```
+- **Acceptance Criteria**:
+  - [ ] API responds on localhost:3000
+  - [ ] Returns valid JSON response
+  - [ ] Error handling works as expected
+  - [ ] No TypeScript errors
 
 ---
 
@@ -723,9 +718,8 @@ Phase 1 (Setup)
 ├── 1.1 ──┬── 1.2 ──┐
 │         ├── 1.3 ──┼── 1.7 ── 1.8
 │         ├── 1.4 ──┤
+│         ├── 1.5 ──┤
 │         └── 1.6 ──┘
-│              │
-│              └── 1.5
 
 Phase 2 (API Integration)
 ├── 2.1 ──┬── 2.3 ──┐
@@ -733,20 +727,17 @@ Phase 2 (API Integration)
           ├── 2.5 ──┤
           └── 2.6 ──┘
 
-Phase 3 (Azure Functions)
-├── 3.1 ──┬── 3.2
-          └── 3.3
+Phase 3 (Next.js API Routes)
+├── 2.7 ── 3.1 ──┬── 3.3
+│                └── 3.2
 
 Phase 4 (Config UI)
-├── 4.1
-├── 4.2
-├── 4.3
-└── 4.4
+├── 4.1, 4.2, 4.3, 4.4 (can run in parallel)
 
-Phase 5 (Dashboard) - All can run in parallel
+Phase 5 (Dashboard)
 ├── 5.1 ── 5.2 ── 5.3
-├── 5.4, 5.5, 5.6 (charts)
-├── 5.7, 5.8 (stats)
+├── 5.4, 5.5, 5.6 (charts - parallel)
+├── 5.7, 5.8 (stats - parallel)
 └── 5.9 (insights)
 
 Phase 6 (Export)
@@ -760,16 +751,16 @@ Phase 7 (Polish)
 
 ## Agent Assignment Recommendations
 
-| Agent   | Tasks            | Focus Area                    |
-| ------- | ---------------- | ----------------------------- |
-| Agent 1 | 1.1-1.4, 1.6-1.8 | Infrastructure & DevOps       |
-| Agent 2 | 1.5, 2.1-2.7     | Azure DevOps API Integration  |
-| Agent 3 | 3.1-3.3          | Azure Functions               |
-| Agent 4 | 4.1-4.4          | Frontend Config UI            |
-| Agent 5 | 5.1-5.3          | Story Viewer & Core Dashboard |
-| Agent 6 | 5.4-5.6          | Charts & Visualizations       |
-| Agent 7 | 5.7-5.9, 6.1-6.2 | Stats Components & Export     |
-| Agent 8 | 7.1-7.6          | Polish & Documentation        |
+| Agent   | Tasks            | Focus Area                      |
+| ------- | ---------------- | ------------------------------- |
+| Agent 1 | 1.1-1.8, 7.6     | Project Setup & Configuration   |
+| Agent 2 | 1.5, 2.1-2.7     | Azure DevOps API Integration    |
+| Agent 3 | 3.1-3.3          | Next.js API Routes              |
+| Agent 4 | 4.1-4.4          | Frontend Config UI              |
+| Agent 5 | 5.1-5.3          | Story Viewer & Core Dashboard   |
+| Agent 6 | 5.4-5.6          | Charts & Visualizations         |
+| Agent 7 | 5.7-5.9, 6.1-6.2 | Stats Components & Export       |
+| Agent 8 | 7.1-7.5          | Testing, Polish & Documentation |
 
 ---
 

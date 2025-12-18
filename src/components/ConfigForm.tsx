@@ -1,0 +1,235 @@
+"use client";
+
+import { useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+
+export interface WrappedConfig {
+  pat: string;
+  organization: string;
+  project: string;
+  repository: string;
+  year: number;
+  userEmail?: string;
+}
+
+interface ConfigFormProps {
+  onSubmit: (config: WrappedConfig) => void;
+  loading?: boolean;
+}
+
+export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
+  const { toast } = useToast();
+  const [config, setConfig] = useState<WrappedConfig>(() => {
+    // Try to load from localStorage
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ado-wrapped-config");
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse saved config:", e);
+        }
+      }
+    }
+    return {
+      pat: "",
+      organization: "",
+      project: "",
+      repository: "",
+      year: new Date().getFullYear() - 1, // Default to last year
+      userEmail: "",
+    };
+  });
+
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof WrappedConfig, string>>
+  >({});
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<Record<keyof WrappedConfig, string>> = {};
+
+    if (!config.pat.trim()) {
+      newErrors.pat = "Personal Access Token is required";
+    }
+    if (!config.organization.trim()) {
+      newErrors.organization = "Organization name is required";
+    }
+    if (!config.project.trim()) {
+      newErrors.project = "Project name is required";
+    }
+    if (!config.repository.trim()) {
+      newErrors.repository = "Repository name is required";
+    }
+    if (
+      !config.year ||
+      config.year < 2010 ||
+      config.year > new Date().getFullYear()
+    ) {
+      newErrors.year = "Please enter a valid year";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields correctly.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Save to localStorage (excluding PAT for security)
+    const configToSave = { ...config };
+    delete (configToSave as any).pat; // Don't save PAT
+    localStorage.setItem("ado-wrapped-config", JSON.stringify(configToSave));
+
+    onSubmit(config);
+  };
+
+  const handleChange = (field: keyof WrappedConfig, value: string | number) => {
+    setConfig((prev) => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  };
+
+  return (
+    <Card className="w-full max-w-2xl">
+      <CardHeader>
+        <CardTitle>Configure Your Wrapped</CardTitle>
+        <CardDescription>
+          Enter your Azure DevOps credentials and repository details to generate
+          your year in review.
+        </CardDescription>
+      </CardHeader>
+      <form onSubmit={handleSubmit}>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="pat">Personal Access Token (PAT) *</Label>
+            <Input
+              id="pat"
+              type="password"
+              placeholder="Enter your Azure DevOps PAT"
+              value={config.pat}
+              onChange={(e) => handleChange("pat", e.target.value)}
+              disabled={loading}
+              className={errors.pat ? "border-destructive" : ""}
+            />
+            {errors.pat && (
+              <p className="text-sm text-destructive">{errors.pat}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Your PAT is used only to fetch data and is not stored permanently.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="organization">Organization *</Label>
+              <Input
+                id="organization"
+                placeholder="e.g., microsoft"
+                value={config.organization}
+                onChange={(e) => handleChange("organization", e.target.value)}
+                disabled={loading}
+                className={errors.organization ? "border-destructive" : ""}
+              />
+              {errors.organization && (
+                <p className="text-sm text-destructive">
+                  {errors.organization}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project">Project *</Label>
+              <Input
+                id="project"
+                placeholder="e.g., vscode"
+                value={config.project}
+                onChange={(e) => handleChange("project", e.target.value)}
+                disabled={loading}
+                className={errors.project ? "border-destructive" : ""}
+              />
+              {errors.project && (
+                <p className="text-sm text-destructive">{errors.project}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="repository">Repository *</Label>
+              <Input
+                id="repository"
+                placeholder="e.g., vscode"
+                value={config.repository}
+                onChange={(e) => handleChange("repository", e.target.value)}
+                disabled={loading}
+                className={errors.repository ? "border-destructive" : ""}
+              />
+              {errors.repository && (
+                <p className="text-sm text-destructive">{errors.repository}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="year">Year *</Label>
+              <Input
+                id="year"
+                type="number"
+                min="2010"
+                max={new Date().getFullYear()}
+                value={config.year}
+                onChange={(e) => handleChange("year", parseInt(e.target.value))}
+                disabled={loading}
+                className={errors.year ? "border-destructive" : ""}
+              />
+              {errors.year && (
+                <p className="text-sm text-destructive">{errors.year}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="userEmail">User Email (Optional)</Label>
+            <Input
+              id="userEmail"
+              type="email"
+              placeholder="filter@example.com"
+              value={config.userEmail}
+              onChange={(e) => handleChange("userEmail", e.target.value)}
+              disabled={loading}
+            />
+            <p className="text-xs text-muted-foreground">
+              Filter commits and PRs by a specific user email.
+            </p>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Generating..." : "Generate My Wrapped"}
+          </Button>
+        </CardFooter>
+      </form>
+    </Card>
+  );
+}
