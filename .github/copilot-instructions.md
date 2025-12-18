@@ -2,29 +2,113 @@
 
 ## Project Overview
 
-ADO Wrapped is a web application that generates personalized "year in review" summaries for Azure DevOps users. It connects to the Azure DevOps REST API to fetch user activity data and presents it in an engaging, visual format.
+Azure DevOps Wrapped is a Next.js 14 web application that generates personalized "year in review" summaries for Azure DevOps users, similar to Spotify Wrapped. Users enter their Azure DevOps organization, project, and repository details along with a Personal Access Token, and the app fetches their activity data to present it in an engaging, animated story-style format.
+
+## Application Flow
+
+1. **Landing Page** (`/`) - User enters configuration (org, project, repo, year, PAT)
+2. **Configuration stored** in `sessionStorage` (never persisted server-side)
+3. **Wrapped Page** (`/wrapped`) - Fetches stats via `/api/stats` API route
+4. **Story Viewer** - Displays animated cards with statistics and visualizations
+5. **Export** - Users can download their stats as JSON or Markdown
 
 ## Technology Stack
 
-- **Frontend**: React/TypeScript with modern hooks and functional components
-- **Backend**: Node.js/Express or Python/FastAPI
-- **API Integration**: Azure DevOps REST API
-- **Styling**: Tailwind CSS or CSS Modules
-- **Testing**: Jest, React Testing Library, pytest
+| Layer             | Technology              | Purpose                          |
+| ----------------- | ----------------------- | -------------------------------- |
+| **Framework**     | Next.js 14 (App Router) | Full-stack React with API routes |
+| **Language**      | TypeScript              | Type safety throughout           |
+| **Styling**       | Tailwind CSS            | Utility-first styling            |
+| **UI Components** | shadcn/ui + Radix UI    | Accessible component primitives  |
+| **Charts**        | Recharts                | Data visualization               |
+| **Animations**    | Framer Motion           | Story-style card transitions     |
+| **Icons**         | Lucide React            | Modern icon library              |
+| **HTTP Client**   | Axios                   | Azure DevOps API requests        |
+| **Dates**         | date-fns                | Date manipulation and formatting |
+
+## Project Structure
+
+```
+ado-wrapped/
+├── src/
+│   ├── app/                          # Next.js App Router
+│   │   ├── page.tsx                  # Landing page with config form
+│   │   ├── layout.tsx                # Root layout with providers
+│   │   ├── globals.css               # Global styles and CSS variables
+│   │   ├── wrapped/
+│   │   │   └── page.tsx              # Stats dashboard page
+│   │   └── api/
+│   │       └── stats/
+│   │           └── route.ts          # GET /api/stats endpoint
+│   ├── components/
+│   │   ├── ui/                       # shadcn/ui components
+│   │   ├── ConfigForm.tsx            # PAT, org, project, repo input form
+│   │   ├── StoryViewer.tsx           # Swipeable story container
+│   │   ├── StatsCard.tsx             # Individual stat display card
+│   │   ├── CommitHeatmap.tsx         # GitHub-style contribution calendar
+│   │   ├── LanguageChart.tsx         # File type pie chart
+│   │   ├── TimeDistributionChart.tsx # Commits by hour/day charts
+│   │   ├── PRStats.tsx               # Pull request statistics
+│   │   ├── BuildStats.tsx            # Build pipeline stats (stub)
+│   │   ├── InsightsCard.tsx          # Developer personality insights
+│   │   ├── ExportButton.tsx          # Download JSON/Markdown
+│   │   ├── ErrorBoundary.tsx         # Error handling wrapper
+│   │   └── ErrorDisplay.tsx          # User-friendly error UI
+│   ├── lib/
+│   │   ├── azure-devops/             # Azure DevOps API integration
+│   │   │   ├── client.ts             # Base API client with auth
+│   │   │   ├── types.ts              # API response types
+│   │   │   ├── commits.ts            # Fetch commits with pagination
+│   │   │   ├── pullRequests.ts       # Fetch PRs with filtering
+│   │   │   ├── aggregator.ts         # Compute stats from raw data
+│   │   │   └── index.ts              # Public exports
+│   │   ├── export.ts                 # JSON/Markdown generation
+│   │   ├── config.ts                 # Configuration utilities
+│   │   └── utils.ts                  # General utilities (cn helper)
+│   ├── hooks/
+│   │   └── use-toast.ts              # Toast notification hook
+│   └── types/
+│       └── index.ts                  # Application TypeScript types
+├── public/                           # Static assets
+├── next.config.js                    # Next.js configuration
+├── tailwind.config.ts                # Tailwind CSS configuration
+├── tsconfig.json                     # TypeScript configuration
+└── package.json                      # Dependencies and scripts
+```
+
+## Key Types
+
+### Configuration Input
+
+```typescript
+interface WrappedConfig {
+  pat: string; // Personal Access Token
+  organization: string; // e.g., "microsoft"
+  project: string; // e.g., "Teams"
+  repository: string; // e.g., "teams-frontend"
+  year: number; // e.g., 2024
+  userEmail?: string; // Optional: filter by specific user
+}
+```
+
+### Stats Response
+
+```typescript
+interface WrappedStats {
+  meta: MetaInfo;
+  commits: CommitStats;
+  pullRequests: PullRequestStats;
+  workItems: WorkItemStats; // Stub - not yet implemented
+  builds: BuildStats; // Stub - not yet implemented
+  insights: Insights;
+}
+```
 
 ## Code Style Guidelines
 
-### General Principles
-
-- Write clean, readable, and self-documenting code
-- Follow DRY (Don't Repeat Yourself) principles
-- Use meaningful variable and function names
-- Keep functions small and focused on a single responsibility
-- Add comments only when the code's intent isn't immediately clear
-
 ### TypeScript/JavaScript
 
-- Use TypeScript for type safety
+- Use TypeScript for all files
 - Prefer `const` over `let`, never use `var`
 - Use async/await over raw promises
 - Destructure objects and arrays when appropriate
@@ -35,7 +119,7 @@ ADO Wrapped is a web application that generates personalized "year in review" su
 const { data, error } = await fetchUserActivity(userId);
 
 // Avoid
-fetchUserActivity(userId).then(result => {
+fetchUserActivity(userId).then((result) => {
   const data = result.data;
   const error = result.error;
 });
@@ -45,126 +129,118 @@ fetchUserActivity(userId).then(result => {
 
 - Use functional components with hooks
 - Keep components small and composable
-- Extract reusable logic into custom hooks
 - Use proper prop typing with TypeScript interfaces
+- Components are in `src/components/`
 
 ```typescript
-interface UserStatsProps {
-  userId: string;
-  year: number;
-  onLoad?: () => void;
+interface StatsCardProps {
+  title: string;
+  value: number;
+  subtitle?: string;
 }
 
-export const UserStats: React.FC<UserStatsProps> = ({ userId, year, onLoad }) => {
+export function StatsCard({ title, value, subtitle }: StatsCardProps) {
   // Component implementation
-};
+}
 ```
 
-### Python (if applicable)
+### API Routes (Next.js App Router)
 
-- Follow PEP 8 style guidelines
-- Use type hints for function parameters and return values
-- Use dataclasses or Pydantic models for data structures
-- Prefer f-strings for string formatting
+- Use route handlers in `src/app/api/`
+- Accept PAT via Authorization header (Bearer token)
+- Return proper HTTP status codes
+- Always validate required parameters
 
-```python
-from dataclasses import dataclass
-
-@dataclass
-class UserActivity:
-    user_id: str
-    commits: int
-    pull_requests: int
-    
-def fetch_activity(user_id: str, year: int) -> UserActivity:
-    """Fetch user activity from Azure DevOps."""
-    pass
+```typescript
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+  const pat = authHeader?.replace("Bearer ", "");
+  // Validate and process...
+}
 ```
 
-## Azure DevOps API Patterns
+## Azure DevOps API Integration
 
 ### Authentication
 
-Always use the ADO PAT token from environment variables:
+PAT tokens are passed via Authorization header and used for Basic auth:
 
 ```typescript
 const headers = {
-  'Authorization': `Basic ${Buffer.from(`:${process.env.ADO_PAT}`).toString('base64')}`,
-  'Content-Type': 'application/json'
+  Authorization: `Basic ${Buffer.from(`:${pat}`).toString("base64")}`,
+  "Content-Type": "application/json",
 };
 ```
 
-### API Endpoints
+### API Endpoints Used
 
-Common Azure DevOps REST API patterns:
-
-- Organization URL: `https://dev.azure.com/{organization}`
-- Project API: `/_apis/projects?api-version=7.0`
-- Git Commits: `/{project}/_apis/git/repositories/{repo}/commits`
-- Pull Requests: `/{project}/_apis/git/pullrequests`
-- Work Items: `/_apis/wit/workitems/{id}`
+- **Commits**: `/{project}/_apis/git/repositories/{repo}/commits`
+- **Pull Requests**: `/{project}/_apis/git/pullrequests`
+- **API Version**: 7.0
 
 ### Error Handling
 
-Always handle API errors gracefully:
+The client handles common errors:
 
-```typescript
-try {
-  const response = await adoClient.getCommits(userId);
-  return { data: response, error: null };
-} catch (error) {
-  console.error('Failed to fetch commits:', error);
-  return { data: null, error: 'Unable to fetch commit data' };
-}
-```
+- 401: Invalid PAT
+- 403: Insufficient permissions
+- 404: Resource not found
+- 429: Rate limiting
+- 5xx: Server errors
 
-## Testing Guidelines
+## Security Practices
 
-- Write unit tests for utility functions and API clients
-- Write integration tests for API endpoints
-- Write component tests for React components
-- Aim for meaningful test coverage, not 100% coverage
-- Use descriptive test names that explain the expected behavior
+- **PAT tokens only in sessionStorage** - Never localStorage or server-side
+- **No data persistence** on server
+- **All API calls authenticated** per-request with user's PAT
+- **`.env` in `.gitignore`** - Secrets never committed
+- **HTTPS required** for production
 
-```typescript
-describe('UserActivityService', () => {
-  it('should return commit count for the specified year', async () => {
-    // Test implementation
-  });
-  
-  it('should handle API errors gracefully', async () => {
-    // Test implementation
-  });
-});
-```
+## Running the Application
 
-## Security Best Practices
+```bash
+# Development
+npm run dev
 
-- Never commit secrets or API tokens
-- Always use environment variables for sensitive data
-- Validate and sanitize all user inputs
-- Use HTTPS for all API communications
-- Implement rate limiting for API endpoints
+# Production build
+npm run build
+npm start
 
-## File Organization
+# Type checking
+npm run type-check
 
-```
-src/
-├── components/       # React components
-├── hooks/           # Custom React hooks
-├── services/        # API clients and business logic
-├── types/           # TypeScript type definitions
-├── utils/           # Utility functions
-├── pages/           # Page components (if using Next.js/routing)
-└── tests/           # Test files
+# Test API integration
+npm run test:api
 ```
 
 ## Common Tasks
 
-When asked to implement features, consider:
+### Adding a New Visualization Component
 
-1. **Data fetching**: Use the Azure DevOps API client
-2. **State management**: Use React hooks or context
-3. **Error handling**: Always provide user-friendly error messages
-4. **Loading states**: Show appropriate loading indicators
-5. **Accessibility**: Ensure components are accessible (ARIA labels, keyboard navigation)
+1. Create component in `src/components/`
+2. Add to story cards array in `StoryViewer.tsx`
+3. Handle the new card type in the `renderCard` function
+
+### Extending Azure DevOps Integration
+
+1. Add types to `src/lib/azure-devops/types.ts`
+2. Create fetcher function in `src/lib/azure-devops/`
+3. Update aggregator to process new data
+4. Update `WrappedStats` type in `src/types/index.ts`
+
+### Modifying the Stats API
+
+The API route is at `src/app/api/stats/route.ts`:
+
+- Accepts query params: organization, project, repository, year, userEmail
+- Returns `WrappedStats` JSON
+- PAT passed via Authorization header
+
+## Future Enhancements (Not Yet Implemented)
+
+- Work Items integration (WIQL queries)
+- Build pipeline statistics
+- Multi-repository support
+- Team analytics
+- Historical year-over-year comparison
+- Social sharing images
