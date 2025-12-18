@@ -31,13 +31,19 @@ export async function fetchCommits(
     enableCache = true,
   } = options;
 
+  console.log(`📜 fetchCommits: Starting for ${organization}/${project}/${repository}`);
+  console.log(`📅 Date range: ${fromDate} to ${toDate}, User: ${userEmail || 'all'}`);
+
   const client = new AzureDevOpsClient({ organization, pat, enableCache });
   const commits: GitCommit[] = [];
   let skip = 0;
   const top = 100; // Azure DevOps API limit per page
+  let pageCount = 0;
 
   try {
     while (true) {
+      pageCount++;
+      console.log(`📊 Fetching commits page ${pageCount} (skip: ${skip})...`);
       const url = `/${project}/_apis/git/repositories/${repository}/commits`;
 
       const params: Record<string, any> = {
@@ -60,11 +66,15 @@ export async function fetchCommits(
       const response = await client.get<GitCommitResponse>(url, params);
 
       if (!response.value || response.value.length === 0) {
+        console.log(`✅ No more commits found (page ${pageCount})`);
         break; // No more commits
       }
 
+      console.log(`✅ Fetched ${response.value.length} commits on page ${pageCount}`);
+
       // Fetch detailed changes for each commit if change counts are needed
       if (includeChangeCounts) {
+        console.log(`🔍 Fetching details for ${response.value.length} commits...`);
         const commitsWithChanges = await Promise.all(
           response.value.map(async (commit) => {
             try {
@@ -76,7 +86,7 @@ export async function fetchCommits(
               );
             } catch (error) {
               console.warn(
-                `Failed to fetch details for commit ${commit.commitId}:`,
+                `⚠️ Failed to fetch details for commit ${commit.commitId}:`,
                 error
               );
               return commit; // Return commit without detailed changes
@@ -84,12 +94,14 @@ export async function fetchCommits(
           })
         );
         commits.push(...commitsWithChanges);
+        console.log(`✅ Commit details fetched (total: ${commits.length})`);
       } else {
         commits.push(...response.value);
       }
 
       // Check if we've fetched all commits
       if (response.value.length < top) {
+        console.log(`✅ Last page reached`);
         break; // Last page
       }
 
@@ -97,11 +109,11 @@ export async function fetchCommits(
     }
 
     console.log(
-      `✓ Fetched ${commits.length} commits from ${fromDate} to ${toDate}`
+      `🎉 ✓ Fetched total of ${commits.length} commits from ${fromDate} to ${toDate} in ${pageCount} pages`
     );
     return commits;
   } catch (error) {
-    console.error("Error fetching commits:", error);
+    console.error(`❌ Error fetching commits for ${organization}/${project}/${repository}:`, error);
     throw new Error(
       `Failed to fetch commits: ${
         error instanceof Error ? error.message : "Unknown error"

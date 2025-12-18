@@ -50,6 +50,8 @@ export class AzureDevOpsClient {
       ...params,
     };
 
+    console.log(`🌐 GET ${url}`);
+
     // Check cache first if enabled
     if (this.enableCache) {
       const cached = readCache<T>(url, fullParams);
@@ -59,9 +61,15 @@ export class AzureDevOpsClient {
     }
 
     // Make API request
+    console.log(`📡 Making API request to Azure DevOps...`);
+    const requestStart = Date.now();
+    
     const response = await this.axiosInstance.get<T>(url, {
       params: fullParams,
     });
+    
+    const duration = Date.now() - requestStart;
+    console.log(`✅ API response received in ${duration}ms`);
 
     // Write to cache if enabled
     if (this.enableCache) {
@@ -112,13 +120,24 @@ export class AzureDevOpsClient {
    * Handle API errors with user-friendly messages
    */
   private handleError(error: AxiosError): Promise<never> {
+    console.error(`❌ Azure DevOps API Error:`, {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      message: error.message,
+    });
+
     if (error.response) {
       // Server responded with error status
       const status = error.response.status;
       const data = error.response.data as any;
 
+      console.error(`🔴 Response data:`, data);
+
       switch (status) {
         case 401:
+          console.error('🔑 Authentication failed - check PAT token');
           throw new Error(
             "Authentication failed. Please check your Personal Access Token (PAT)."
           );

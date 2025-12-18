@@ -59,15 +59,17 @@ export function readCache<T>(
     const filePath = getCacheFilePath(cacheKey);
 
     if (!fs.existsSync(filePath)) {
+      console.log(`⚪ Cache MISS for ${url}`);
       return null;
     }
 
     const content = fs.readFileSync(filePath, "utf-8");
     const cached = JSON.parse(content);
 
-    console.log(`✓ Cache HIT for ${url}`);
+    console.log(`✅ Cache HIT for ${url} (cached: ${cached.timestamp})`);
     return cached.data as T;
   } catch (error) {
+    console.error(`❌ Cache read error for ${url}:`, error);
     console.warn(`Cache read error for ${url}:`, error);
     return null;
   }
@@ -94,10 +96,12 @@ export function writeCache<T>(
       data,
     };
 
-    fs.writeFileSync(filePath, JSON.stringify(cacheEntry, null, 2), "utf-8");
-    console.log(`✓ Cache WRITE for ${url}`);
+    const jsonStr = JSON.stringify(cacheEntry, null, 2);
+    fs.writeFileSync(filePath, jsonStr, "utf-8");
+    const sizeKB = (jsonStr.length / 1024).toFixed(2);
+    console.log(`💾 Cache WRITE for ${url} (${sizeKB} KB)`);
   } catch (error) {
-    console.warn(`Cache write error for ${url}:`, error);
+    console.error(`❌ Cache write error for ${url}:`, error);
   }
 }
 

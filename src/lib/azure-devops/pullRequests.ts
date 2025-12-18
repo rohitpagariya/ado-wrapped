@@ -37,16 +37,22 @@ export async function fetchPullRequests(
     enableCache = true,
   } = options;
 
+  console.log(`🔄 fetchPullRequests: Starting for ${organization}/${project}/${repository}`);
+  console.log(`📅 Date range: ${fromDate} to ${toDate}, User: ${userEmail || 'all'}`);
+
   const client = new AzureDevOpsClient({ organization, pat, enableCache });
   const allPRs: GitPullRequest[] = [];
 
   try {
     // Get repository ID first
+    console.log(`📦 Fetching repository info...`);
     const repoUrl = `/${project}/_apis/git/repositories/${repository}`;
     const repo = await client.get<any>(repoUrl);
+    console.log(`✅ Repository ID: ${repo.id}`);
     const repositoryId = repo.id;
 
     // Fetch PRs created by the user
+    console.log(`📝 Fetching PRs created by user...`);
     const createdPRs = await fetchPRsByStatus(
       client,
       repositoryId,
@@ -55,11 +61,13 @@ export async function fetchPullRequests(
       "all",
       userEmail ? { creatorEmail: userEmail } : undefined
     );
+    console.log(`✅ Found ${createdPRs.length} created PRs`);
 
     allPRs.push(...createdPRs);
 
     // Fetch PRs where user was a reviewer (if enabled and userEmail provided)
     if (includeReviewed && userEmail) {
+      console.log(`👁️ Fetching PRs reviewed by user...`);
       const reviewedPRs = await fetchPRsByStatus(
         client,
         repositoryId,
@@ -68,18 +76,25 @@ export async function fetchPullRequests(
         "all",
         { reviewerEmail: userEmail }
       );
+      console.log(`✅ Found ${reviewedPRs.length} reviewed PRs`);
 
       // Merge and deduplicate
+      console.log(`🔀 Deduplicating PRs...`);
       const prIds = new Set(allPRs.map((pr) => pr.pullRequestId));
+      let duplicates = 0;
       for (const pr of reviewedPRs) {
         if (!prIds.has(pr.pullRequestId)) {
           allPRs.push(pr);
           prIds.add(pr.pullRequestId);
+        } else {
+          duplicates++;
         }
       }
+      console.log(`✅ Removed ${duplicates} duplicate PRs`);
     }
 
     // Filter by date range (Azure DevOps doesn't support date filtering directly)
+    console.log(`📅 Filtering PRs by date range...`);
     const filteredPRs = allPRs.filter((pr) => {
       const creationDate = new Date(pr.creationDate);
       const from = new Date(fromDate);
@@ -87,13 +102,14 @@ export async function fetchPullRequests(
       to.setHours(23, 59, 59, 999); // Include entire end date
       return creationDate >= from && creationDate <= to;
     });
+    console.log(`✅ ${filteredPRs.length} PRs in date range (filtered ${allPRs.length - filteredPRs.length})`);
 
     console.log(
-      `✓ Fetched ${filteredPRs.length} pull requests from ${fromDate} to ${toDate}`
+      `🎉 ✓ Fetched total of ${filteredPRs.length} pull requests from ${fromDate} to ${toDate}`
     );
     return filteredPRs;
   } catch (error) {
-    console.error("Error fetching pull requests:", error);
+    console.error(`❌ Error fetching pull requests for ${organization}/${project}/${repository}:`, error);
     throw new Error(
       `Failed to fetch pull requests: ${
         error instanceof Error ? error.message : "Unknown error"
