@@ -159,18 +159,7 @@ If the app gets stuck on "Fetching data" or you encounter errors, comprehensive 
 
 **Emoji Log Key:** 🚀 Request | 🔑 Auth | 📋 Params | 🌐 HTTP | ✅ Success | ❌ Error | ⚪ Cache miss | 💾 Cache write | 🎉 Complete
 
-### Project Structure
-
-```
-src/
-├── app/              # Next.js App Router pages and API
-├── components/       # React components (UI, charts, stats)
-├── lib/azure-devops/ # Azure DevOps API client
-├── hooks/            # Custom React hooks
-└── types/            # TypeScript types
-```
-
-See [plan.md](plan.md) for architecture details.
+---
 
 ---
 
@@ -182,14 +171,7 @@ See [plan.md](plan.md) for architecture details.
 4. Run `npm run type-check` to ensure no TypeScript errors
 5. Submit a Pull Request
 
-### Future Enhancements
-
-Check [tasks.md](tasks.md) for planned features like:
-
-- Work Items integration
-- Build pipeline statistics
-- Multi-repository support
-- Team analytics
+See [tasks.md](tasks.md) for planned enhancements.
 
 ---
 

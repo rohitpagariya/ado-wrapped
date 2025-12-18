@@ -28,20 +28,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 └─────────────────────────────────────────────────────────────────┘
 ```
 
----
-
-## Tech Stack
-
-| Layer          | Technology               | Purpose                               |
-| -------------- | ------------------------ | ------------------------------------- |
-| **Framework**  | Next.js 14 (App Router)  | Full-stack with built-in API routes   |
-| **Language**   | TypeScript               | Type safety                           |
-| **Styling**    | Tailwind CSS + shadcn/ui | Utility-first + accessible components |
-| **Charts**     | Recharts                 | Data visualization                    |
-| **Animations** | Framer Motion            | Story-style card transitions          |
-| **Icons**      | Lucide React             | Modern icon library                   |
-| **HTTP**       | Axios                    | API requests                          |
-| **Dates**      | date-fns                 | Date manipulation                     |
+> See [.github/copilot-instructions.md](.github/copilot-instructions.md) for complete tech stack details.
 
 ---
 
@@ -86,18 +73,13 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 
 ---
 
-## Project Structure
+## Key Directories
 
 ```
 src/
-├── app/
-│   ├── page.tsx              # Landing page with ConfigForm
-│   ├── layout.tsx            # Root layout with Toaster
-│   ├── globals.css           # CSS variables and base styles
-│   ├── wrapped/page.tsx      # Stats dashboard
-│   └── api/stats/route.ts    # Stats API endpoint
-├── components/
-│   ├── ui/                   # shadcn/ui components
+├── app/                      # Next.js App Router (pages & API routes)
+├── components/               # React components (UI, charts, stats)
+├── lib/azure-devops/         # Azure DevOps API client & aggregation
 │   ├── ConfigForm.tsx        # User configuration input
 │   ├── StoryViewer.tsx       # Animated story container
 │   ├── StatsCard.tsx         # Reusable stat display
@@ -184,22 +166,8 @@ src/
 
 ---
 
-## Deployment Options
+## References
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions:
-
-- **Vercel** (recommended) - Zero-config Next.js hosting
-- **Azure App Service** - Native Azure integration
-- **Docker** - Containerized deployment
-
----
-
-## Development Commands
-
-```bash
-npm run dev        # Start development server
-npm run build      # Production build
-npm start          # Start production server
-npm run type-check # TypeScript validation
-npm run test:api   # Test Azure DevOps integration
-```
+- **Deployment**: See [DEPLOYMENT.md](DEPLOYMENT.md) for Vercel, Azure, and Docker instructions
+- **Development**: See README.md for available npm scripts
+- **Roadmap**: See [tasks.md](tasks.md) for planned enhancements

@@ -1,16 +1,13 @@
 # GitHub Copilot Instructions for ADO Wrapped
 
+> **Purpose**: This file provides coding guidelines, tech stack details, and common development patterns for AI assistants and developers working on this project.
+> 
+> For architecture and application flow, see [plan.md](../plan.md).  
+> For setup and usage, see [README.md](../README.md).
+
 ## Project Overview
 
-Azure DevOps Wrapped is a Next.js 14 web application that generates personalized "year in review" summaries for Azure DevOps users, similar to Spotify Wrapped. Users enter their Azure DevOps organization, project, and repository details along with a Personal Access Token, and the app fetches their activity data to present it in an engaging, animated story-style format.
-
-## Application Flow
-
-1. **Landing Page** (`/`) - User enters configuration (org, project, repo, year, PAT)
-2. **Configuration stored** in `sessionStorage` (never persisted server-side)
-3. **Wrapped Page** (`/wrapped`) - Fetches stats via `/api/stats` API route
-4. **Story Viewer** - Displays animated cards with statistics and visualizations
-5. **Export** - Users can download their stats as JSON or Markdown
+Azure DevOps Wrapped is a Next.js 14 web application that generates personalized "year in review" summaries for Azure DevOps users, similar to Spotify Wrapped.
 
 ## Technology Stack
 
@@ -196,23 +193,6 @@ The client handles common errors:
 - **`.env` in `.gitignore`** - Secrets never committed
 - **HTTPS required** for production
 
-## Running the Application
-
-```bash
-# Development
-npm run dev
-
-# Production build
-npm run build
-npm start
-
-# Type checking
-npm run type-check
-
-# Test API integration
-npm run test:api
-```
-
 ## Common Tasks
 
 ### Adding a New Visualization Component
@@ -235,12 +215,3 @@ The API route is at `src/app/api/stats/route.ts`:
 - Accepts query params: organization, project, repository, year, userEmail
 - Returns `WrappedStats` JSON
 - PAT passed via Authorization header
-
-## Future Enhancements (Not Yet Implemented)
-
-- Work Items integration (WIQL queries)
-- Build pipeline statistics
-- Multi-repository support
-- Team analytics
-- Historical year-over-year comparison
-- Social sharing images
