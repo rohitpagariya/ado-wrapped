@@ -10,6 +10,7 @@ export interface AzureDevOpsClientConfig {
 
 export class AzureDevOpsClient {
   private axiosInstance: AxiosInstance;
+  private vsspsAxiosInstance: AxiosInstance; // For Identity APIs (vssps.dev.azure.com)
   private organization: string;
   private apiVersion: string;
   private enableCache: boolean;
@@ -19,21 +20,39 @@ export class AzureDevOpsClient {
     this.apiVersion = config.apiVersion || "7.0";
     this.enableCache = config.enableCache ?? true; // Cache enabled by default
 
-    // Create axios instance with base configuration
+    const authHeader = `Basic ${Buffer.from(`:${config.pat}`).toString(
+      "base64"
+    )}`;
+
+    // Create axios instance with base configuration for dev.azure.com
     this.axiosInstance = axios.create({
       baseURL: `https://dev.azure.com/${config.organization}`,
       headers: {
         "Content-Type": "application/json",
-        // PAT authentication using Basic Auth (empty username, PAT as password)
-        Authorization: `Basic ${Buffer.from(`:${config.pat}`).toString(
-          "base64"
-        )}`,
+        Authorization: authHeader,
       },
       timeout: 30000, // 30 second timeout
     });
 
-    // Add response interceptor for error handling
+    // Create axios instance for vssps.dev.azure.com (Identity APIs)
+    // The Identities API uses a different base URL: https://vssps.dev.azure.com/{organization}
+    this.vsspsAxiosInstance = axios.create({
+      baseURL: `https://vssps.dev.azure.com/${config.organization}`,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+      },
+      timeout: 30000,
+    });
+
+    // Add response interceptor for error handling (both instances)
     this.axiosInstance.interceptors.response.use(
+      (response) => response,
+      (error: AxiosError) => {
+        return this.handleError(error);
+      }
+    );
+    this.vsspsAxiosInstance.interceptors.response.use(
       (response) => response,
       (error: AxiosError) => {
         return this.handleError(error);
@@ -74,6 +93,48 @@ export class AzureDevOpsClient {
     // Write to cache if enabled
     if (this.enableCache) {
       writeCache(url, fullParams, response.data);
+    }
+
+    return response.data;
+  }
+
+  /**
+   * Get method for VSSPS APIs (Identity APIs at vssps.dev.azure.com)
+   * The Identities API uses a different base URL than the main Azure DevOps API.
+   * See: https://learn.microsoft.com/en-us/rest/api/azure/devops/ims/identities/read-identities
+   */
+  async getVssps<T>(url: string, params?: Record<string, any>): Promise<T> {
+    // Use API version 7.1 for VSSPS APIs as per documentation
+    const fullParams = {
+      "api-version": "7.1",
+      ...params,
+    };
+
+    console.log(`🌐 GET (VSSPS) ${url}`);
+
+    // Check cache first if enabled (prefix with vssps: to differentiate)
+    const cacheKey = `vssps:${url}`;
+    if (this.enableCache) {
+      const cached = readCache<T>(cacheKey, fullParams);
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
+    // Make API request to vssps.dev.azure.com
+    console.log(`📡 Making API request to Azure DevOps (VSSPS)...`);
+    const requestStart = Date.now();
+
+    const response = await this.vsspsAxiosInstance.get<T>(url, {
+      params: fullParams,
+    });
+
+    const duration = Date.now() - requestStart;
+    console.log(`✅ VSSPS API response received in ${duration}ms`);
+
+    // Write to cache if enabled
+    if (this.enableCache) {
+      writeCache(cacheKey, fullParams, response.data);
     }
 
     return response.data;

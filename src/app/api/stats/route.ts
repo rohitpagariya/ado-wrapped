@@ -89,6 +89,10 @@ export async function GET(request: NextRequest) {
     const fetchStartTime = Date.now();
 
     // Fetch all data in parallel
+    // OPTIMIZATION:
+    // - Commits are filtered to master branch only (not individual PR commits)
+    // - PRs are filtered to completed PRs targeting master branch
+    // - changeCounts included in list response (no per-commit fetches needed)
     const [commits, pullRequests] = await Promise.all([
       fetchCommits({
         organization,
@@ -98,7 +102,7 @@ export async function GET(request: NextRequest) {
         fromDate: startDate,
         toDate: endDate,
         userEmail: userEmail || undefined,
-        includeChangeCounts: true,
+        branch: "master", // Only commits on master branch
         // enableCache: true, // default
       }),
       fetchPullRequests({

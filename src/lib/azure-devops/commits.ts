@@ -9,12 +9,17 @@ export interface FetchCommitsOptions {
   fromDate: string; // ISO 8601 format: YYYY-MM-DD
   toDate: string; // ISO 8601 format: YYYY-MM-DD
   userEmail?: string; // Optional: filter by specific user
-  includeChangeCounts?: boolean; // Include additions/deletions/edits
+  branch?: string; // Branch to filter commits (default: master)
   enableCache?: boolean; // Enable response caching (default: true)
 }
 
 /**
  * Fetch all commits for a repository within a date range
+ *
+ * OPTIMIZATION:
+ * - Filters to only commits on master branch (not individual PR commits)
+ * - Uses changeCounts from list response (no per-commit API calls needed)
+ * - The API already includes Add/Edit/Delete counts in the list response
  */
 export async function fetchCommits(
   options: FetchCommitsOptions
@@ -27,7 +32,7 @@ export async function fetchCommits(
     fromDate,
     toDate,
     userEmail,
-    includeChangeCounts = true,
+    branch = "master", // Default to master branch
     enableCache = true,
   } = options;
 
@@ -35,7 +40,9 @@ export async function fetchCommits(
     `📜 fetchCommits: Starting for ${organization}/${project}/${repository}`
   );
   console.log(
-    `📅 Date range: ${fromDate} to ${toDate}, User: ${userEmail || "all"}`
+    `📅 Date range: ${fromDate} to ${toDate}, User: ${
+      userEmail || "all"
+    }, Branch: ${branch}`
   );
 
   const client = new AzureDevOpsClient({ organization, pat, enableCache });
@@ -55,6 +62,10 @@ export async function fetchCommits(
         "searchCriteria.toDate": toDate,
         "searchCriteria.$top": top,
         "searchCriteria.$skip": skip,
+        // Filter to only commits on the specified branch (default: master)
+        // This excludes individual commits in feature branches that haven't been merged
+        "searchCriteria.itemVersion.version": branch,
+        "searchCriteria.itemVersion.versionType": "branch",
       };
 
       // Add user email filter if provided
@@ -62,10 +73,8 @@ export async function fetchCommits(
         params["searchCriteria.author"] = userEmail;
       }
 
-      // Include change counts for additions/deletions/edits
-      if (includeChangeCounts) {
-        params["searchCriteria.includeStatuses"] = true;
-      }
+      // Note: changeCounts (Add/Edit/Delete) are included by default in the response
+      // No need for includeStatuses or separate per-commit API calls
 
       const response = await client.get<GitCommitResponse>(url, params);
 
@@ -78,34 +87,9 @@ export async function fetchCommits(
         `✅ Fetched ${response.value.length} commits on page ${pageCount}`
       );
 
-      // Fetch detailed changes for each commit if change counts are needed
-      if (includeChangeCounts) {
-        console.log(
-          `🔍 Fetching details for ${response.value.length} commits...`
-        );
-        const commitsWithChanges = await Promise.all(
-          response.value.map(async (commit) => {
-            try {
-              return await fetchCommitDetails(
-                client,
-                project,
-                repository,
-                commit.commitId
-              );
-            } catch (error) {
-              console.warn(
-                `⚠️ Failed to fetch details for commit ${commit.commitId}:`,
-                error
-              );
-              return commit; // Return commit without detailed changes
-            }
-          })
-        );
-        commits.push(...commitsWithChanges);
-        console.log(`✅ Commit details fetched (total: ${commits.length})`);
-      } else {
-        commits.push(...response.value);
-      }
+      // changeCounts is already included in the list response - no need for per-commit fetches
+      // This dramatically reduces API calls (from N+1 to just pagination calls)
+      commits.push(...response.value);
 
       // Check if we've fetched all commits
       if (response.value.length < top) {

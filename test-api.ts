@@ -49,8 +49,8 @@ async function testAPIIntegration() {
 
     console.log("📥 Fetching data from Azure DevOps...\n");
 
-    // Fetch commits
-    console.log("1️⃣  Fetching commits...");
+    // Fetch commits (only from master branch)
+    console.log("1️⃣  Fetching commits from master branch...");
     const commits = await fetchCommits({
       organization: config.organization,
       project: config.project,
@@ -59,11 +59,11 @@ async function testAPIIntegration() {
       fromDate,
       toDate,
       userEmail: config.userEmail,
-      includeChangeCounts: true,
+      branch: "master",
     });
 
-    // Fetch pull requests
-    console.log("2️⃣  Fetching pull requests...");
+    // Fetch pull requests (only completed PRs to master)
+    console.log("2️⃣  Fetching pull requests merged to master...");
     const pullRequests = await fetchPullRequests({
       organization: config.organization,
       project: config.project,
