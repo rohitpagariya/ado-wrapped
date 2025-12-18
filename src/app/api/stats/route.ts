@@ -41,6 +41,11 @@ export async function GET(request: NextRequest) {
       `Fetching stats for ${organization}/${project}/${repository} (${year})`
     );
 
+    // Note: Caching is enabled by default (enableCache: true)
+    // This is beneficial even in production as identical requests
+    // (same org/project/repo/year) return cached data instantly.
+    // To disable: add enableCache: false to fetch options below
+
     // Fetch all data in parallel
     const [commits, pullRequests] = await Promise.all([
       fetchCommits({
@@ -52,6 +57,7 @@ export async function GET(request: NextRequest) {
         toDate: endDate,
         userEmail: userEmail || undefined,
         includeChangeCounts: true,
+        // enableCache: true, // default
       }),
       fetchPullRequests({
         organization,
@@ -62,6 +68,7 @@ export async function GET(request: NextRequest) {
         toDate: endDate,
         userEmail: userEmail || undefined,
         includeReviewed: true,
+        // enableCache: true, // default
       }),
     ]);
 

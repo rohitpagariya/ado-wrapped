@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test:api": "tsx test-api.ts"
+    "test:api": "tsx test-api.ts",
+    "cache:stats": "tsx cache-cli.ts stats",
+    "cache:clear": "tsx cache-cli.ts clear",
+    "cache:demo": "tsx cache-example.ts"
   },
   "dependencies": {
     "@radix-ui/react-label": "^2.1.8",

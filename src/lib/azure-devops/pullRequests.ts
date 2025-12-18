@@ -16,6 +16,7 @@ export interface FetchPullRequestsOptions {
   toDate: string; // ISO 8601 format: YYYY-MM-DD
   userEmail?: string; // Optional: filter by specific user
   includeReviewed?: boolean; // Include PRs where user was a reviewer
+  enableCache?: boolean; // Enable response caching (default: true)
 }
 
 /**
@@ -33,9 +34,10 @@ export async function fetchPullRequests(
     toDate,
     userEmail,
     includeReviewed = true,
+    enableCache = true,
   } = options;
 
-  const client = new AzureDevOpsClient({ organization, pat });
+  const client = new AzureDevOpsClient({ organization, pat, enableCache });
   const allPRs: GitPullRequest[] = [];
 
   try {

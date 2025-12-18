@@ -1,19 +1,23 @@
 import axios, { AxiosInstance, AxiosError } from "axios";
+import { readCache, writeCache } from "./cache";
 
 export interface AzureDevOpsClientConfig {
   organization: string;
   pat: string;
   apiVersion?: string;
+  enableCache?: boolean; // Enable response caching
 }
 
 export class AzureDevOpsClient {
   private axiosInstance: AxiosInstance;
   private organization: string;
   private apiVersion: string;
+  private enableCache: boolean;
 
   constructor(config: AzureDevOpsClientConfig) {
     this.organization = config.organization;
     this.apiVersion = config.apiVersion || "7.0";
+    this.enableCache = config.enableCache ?? true; // Cache enabled by default
 
     // Create axios instance with base configuration
     this.axiosInstance = axios.create({
@@ -38,7 +42,7 @@ export class AzureDevOpsClient {
   }
 
   /**
-   * Get method with automatic retry for rate limiting
+   * Get method with automatic retry for rate limiting and caching support
    */
   async get<T>(url: string, params?: Record<string, any>): Promise<T> {
     const fullParams = {
@@ -46,14 +50,29 @@ export class AzureDevOpsClient {
       ...params,
     };
 
+    // Check cache first if enabled
+    if (this.enableCache) {
+      const cached = readCache<T>(url, fullParams);
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
+    // Make API request
     const response = await this.axiosInstance.get<T>(url, {
       params: fullParams,
     });
+
+    // Write to cache if enabled
+    if (this.enableCache) {
+      writeCache(url, fullParams, response.data);
+    }
+
     return response.data;
   }
 
   /**
-   * Post method for WIQL queries and other POST operations
+   * Post method for WIQL queries and other POST operations with caching support
    */
   async post<T>(
     url: string,
@@ -65,9 +84,27 @@ export class AzureDevOpsClient {
       ...params,
     };
 
+    // For POST requests, include request body in cache key
+    const cacheParams = { ...fullParams, _body: data };
+
+    // Check cache first if enabled
+    if (this.enableCache) {
+      const cached = readCache<T>(url, cacheParams);
+      if (cached !== null) {
+        return cached;
+      }
+    }
+
+    // Make API request
     const response = await this.axiosInstance.post<T>(url, data, {
       params: fullParams,
     });
+
+    // Write to cache if enabled
+    if (this.enableCache) {
+      writeCache(url, cacheParams, response.data);
+    }
+
     return response.data;
   }
 

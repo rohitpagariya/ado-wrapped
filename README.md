@@ -65,10 +65,42 @@ Open [http://localhost:3000](http://localhost:3000) and enter your Azure DevOps 
 ## Development
 
 ```bash
-npm run dev        # Start dev server
-npm run build      # Production build
-npm run type-check # TypeScript validation
-npm run test:api   # Test Azure DevOps integration
+npm run dev          # Start dev server
+npm run build        # Production build
+npm run type-check   # TypeScript validation
+npm run test:api     # Test Azure DevOps integration
+npm run cache:stats  # Show cache statistics
+npm run cache:clear  # Clear API response cache
+```
+
+### API Response Caching
+
+To speed up development and reduce API load, all Azure DevOps API responses are automatically cached to `.ado-cache/` directory as JSON files. The cache is:
+
+- **Enabled by default** for all API requests
+- **Keyed** by URL and request parameters (deterministic)
+- **Transparent** — same response whether cached or fresh
+- **Persistent** across development sessions
+- **Git-ignored** (not committed to repo)
+
+**Cache management:**
+
+```bash
+# View cache statistics
+npm run cache:stats
+
+# Clear all cached responses (useful when debugging data issues)
+npm run cache:clear
+```
+
+To disable caching programmatically, set `enableCache: false` when creating the Azure DevOps client:
+
+```typescript
+const client = new AzureDevOpsClient({
+  organization: "myorg",
+  pat: "mytoken",
+  enableCache: false, // Disable caching
+});
 ```
 
 ### Project Structure

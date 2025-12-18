@@ -8,6 +8,11 @@
  * 4. Display results
  *
  * Usage: npm run test:api
+ *
+ * Note: API responses are automatically cached to .ado-cache/
+ * - First run: Makes real API calls and caches responses
+ * - Subsequent runs: Uses cached data (instant)
+ * - Clear cache: npm run cache:clear
  */
 
 import fs from "fs";

@@ -10,6 +10,7 @@ export interface FetchCommitsOptions {
   toDate: string; // ISO 8601 format: YYYY-MM-DD
   userEmail?: string; // Optional: filter by specific user
   includeChangeCounts?: boolean; // Include additions/deletions/edits
+  enableCache?: boolean; // Enable response caching (default: true)
 }
 
 /**
@@ -27,9 +28,10 @@ export async function fetchCommits(
     toDate,
     userEmail,
     includeChangeCounts = true,
+    enableCache = true,
   } = options;
 
-  const client = new AzureDevOpsClient({ organization, pat });
+  const client = new AzureDevOpsClient({ organization, pat, enableCache });
   const commits: GitCommit[] = [];
   let skip = 0;
   const top = 100; // Azure DevOps API limit per page

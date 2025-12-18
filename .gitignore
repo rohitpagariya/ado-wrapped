@@ -64,6 +64,9 @@ htmlcov/
 .parcel-cache/
 .turbo/
 
+# ADO API Response Cache
+.ado-cache/
+
 # TypeScript
 *.tsbuildinfo
 
