@@ -87,15 +87,65 @@ ${Object.entries(commits.byHour || {})
 - **Abandoned:** ${pullRequests.abandoned || 0}
 - **Reviewed:** ${pullRequests.reviewed}
 ${
-  pullRequests.avgDaysToMerge
-    ? `- **Avg Days to Merge:** ${pullRequests.avgDaysToMerge.toFixed(1)} days`
+  pullRequests.avgDaysToMergeFormatted
+    ? `- **Avg Time to Merge:** ${pullRequests.avgDaysToMergeFormatted}`
+    : ""
+}
+${
+  pullRequests.firstPRDate
+    ? `- **First PR:** ${new Date(
+        pullRequests.firstPRDate
+      ).toLocaleDateString()}`
+    : ""
+}
+${
+  pullRequests.lastPRDate
+    ? `- **Last PR:** ${new Date(pullRequests.lastPRDate).toLocaleDateString()}`
     : ""
 }
 
 ${
+  pullRequests.fastestMerge
+    ? `### ⚡ Fastest Merge
+- **Title:** ${pullRequests.fastestMerge.title}
+- **Time:** ${
+        pullRequests.fastestMerge.hours < 24
+          ? `${Math.round(pullRequests.fastestMerge.hours)} hours`
+          : `${
+              Math.round((pullRequests.fastestMerge.hours / 24) * 10) / 10
+            } days`
+      }
+`
+    : ""
+}
+
+${
+  pullRequests.slowestMerge
+    ? `### 🐢 Longest Review
+- **Title:** ${pullRequests.slowestMerge.title}
+- **Time:** ${pullRequests.slowestMerge.days} days
+`
+    : ""
+}
+
+### PRs by Month
+
+${Object.entries(pullRequests.byMonth || {})
+  .filter(([, count]) => count > 0)
+  .map(([month, count]) => `- ${month}: ${count}`)
+  .join("\n")}
+
+### PRs by Day of Week
+
+${Object.entries(pullRequests.byDayOfWeek || {})
+  .filter(([, count]) => count > 0)
+  .map(([day, count]) => `- ${day}: ${count}`)
+  .join("\n")}
+
+${
   pullRequests.largestPR
     ? `
-### Largest PR
+### 🏆 Largest PR
 
 - **Title:** ${pullRequests.largestPR.title}
 - **Files Changed:** ${pullRequests.largestPR.filesChanged}

@@ -181,13 +181,134 @@ function aggregatePRStats(
   const avgDaysToMerge = calculateAvgDaysToMerge(prs);
   const largestPR = findLargestPR(prs);
 
+  // Time-based distributions for PRs
+  const byMonth: Record<string, number> = {};
+  const byDayOfWeek: Record<string, number> = {};
+  const byHour: Record<number, number> = {};
+  const dayNames = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  // Initialize
+  monthNames.forEach((month) => (byMonth[month] = 0));
+  dayNames.forEach((day) => (byDayOfWeek[day] = 0));
+  for (let i = 0; i < 24; i++) {
+    byHour[i] = 0;
+  }
+
+  let firstPRDate = "";
+  let lastPRDate = "";
+  let totalComments = 0;
+
+  // Track merge times for fastest/slowest
+  const mergeTimes: Array<{ id: number; title: string; hours: number }> = [];
+
+  for (const pr of prs) {
+    const date = parseISO(pr.creationDate);
+
+    // Track first and last PR
+    if (!firstPRDate || pr.creationDate < firstPRDate) {
+      firstPRDate = pr.creationDate;
+    }
+    if (!lastPRDate || pr.creationDate > lastPRDate) {
+      lastPRDate = pr.creationDate;
+    }
+
+    // By month
+    const month = monthNames[getMonth(date)];
+    byMonth[month]++;
+
+    // By day of week
+    const dayOfWeek = dayNames[getDay(date)];
+    byDayOfWeek[dayOfWeek]++;
+
+    // By hour
+    const hour = getHours(date);
+    byHour[hour]++;
+
+    // Count comments from reviewers (vote count as proxy)
+    if (pr.reviewers) {
+      totalComments += pr.reviewers.length;
+    }
+
+    // Calculate merge time for completed PRs
+    if (pr.status === "completed" && pr.closedDate) {
+      const created = new Date(pr.creationDate);
+      const closed = new Date(pr.closedDate);
+      const hours = (closed.getTime() - created.getTime()) / (1000 * 60 * 60);
+      mergeTimes.push({ id: pr.pullRequestId, title: pr.title, hours });
+    }
+  }
+
+  // Find fastest and slowest merges
+  let fastestMerge: { id: number; title: string; hours: number } | null = null;
+  let slowestMerge: { id: number; title: string; days: number } | null = null;
+
+  if (mergeTimes.length > 0) {
+    mergeTimes.sort((a, b) => a.hours - b.hours);
+    const fastest = mergeTimes[0];
+    const slowest = mergeTimes[mergeTimes.length - 1];
+
+    fastestMerge = {
+      id: fastest.id,
+      title: fastest.title,
+      hours: Math.round(fastest.hours * 10) / 10,
+    };
+    slowestMerge = {
+      id: slowest.id,
+      title: slowest.title,
+      days: Math.round((slowest.hours / 24) * 10) / 10,
+    };
+  }
+
+  // Format average merge time in human-readable format
+  let avgDaysToMergeFormatted = "N/A";
+  if (avgDaysToMerge > 0) {
+    if (avgDaysToMerge < 1) {
+      const hours = Math.round(avgDaysToMerge * 24);
+      avgDaysToMergeFormatted = `${hours} hour${hours !== 1 ? "s" : ""}`;
+    } else {
+      const days = Math.round(avgDaysToMerge * 10) / 10;
+      avgDaysToMergeFormatted = `${days} day${days !== 1 ? "s" : ""}`;
+    }
+  }
+
   return {
     created: stats.created,
     merged: stats.merged,
     abandoned: stats.abandoned,
     reviewed: stats.reviewed,
-    avgDaysToMerge: Math.round(avgDaysToMerge * 10) / 10, // Round to 1 decimal
+    avgDaysToMerge: Math.round(avgDaysToMerge * 10) / 10,
+    avgDaysToMergeFormatted,
     largestPR,
+    byMonth,
+    byDayOfWeek,
+    byHour,
+    firstPRDate,
+    lastPRDate,
+    totalComments,
+    fastestMerge,
+    slowestMerge,
   };
 }
 
@@ -287,16 +408,12 @@ function extractTopWords(messages: string[], topN: number = 10): string[] {
 
 /**
  * Generate fun insights from the data
+ * Uses commits as primary source, falls back to PRs if no commits
  */
 function generateInsights(
   commits: GitCommit[],
   prs: GitPullRequest[]
 ): Insights {
-  // Determine personality type based on commit hours
-  const personality = determinePersonality(commits);
-
-  // Find busiest month
-  const monthCounts = new Map<string, number>();
   const monthNames = [
     "Jan",
     "Feb",
@@ -311,17 +428,6 @@ function generateInsights(
     "Nov",
     "Dec",
   ];
-
-  for (const commit of commits) {
-    const month = monthNames[getMonth(parseISO(commit.author.date))];
-    monthCounts.set(month, (monthCounts.get(month) || 0) + 1);
-  }
-
-  const busiestMonth =
-    Array.from(monthCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-    "Unknown";
-
-  // Find busiest day
   const dayNames = [
     "Sunday",
     "Monday",
@@ -331,27 +437,68 @@ function generateInsights(
     "Friday",
     "Saturday",
   ];
-  const dayCounts = new Map<string, number>();
 
+  // If we have commits, use them for insights
+  if (commits.length > 0) {
+    return generateInsightsFromCommits(commits, monthNames, dayNames);
+  }
+
+  // Fall back to PR data if no commits
+  if (prs.length > 0) {
+    return generateInsightsFromPRs(prs, monthNames, dayNames);
+  }
+
+  // No data at all - return defaults
+  return {
+    personality: "Nine-to-Fiver",
+    busiestMonth: "Unknown",
+    busiestDay: "Unknown",
+    favoriteCommitHour: 12,
+    topFileExtensions: [],
+  };
+}
+
+/**
+ * Generate insights from commit data
+ */
+function generateInsightsFromCommits(
+  commits: GitCommit[],
+  monthNames: string[],
+  dayNames: string[]
+): Insights {
+  // Determine personality type based on commit hours
+  const personality = determinePersonalityFromDates(
+    commits.map((c) => parseISO(c.author.date))
+  );
+
+  // Find busiest month
+  const monthCounts = new Map<string, number>();
+  for (const commit of commits) {
+    const month = monthNames[getMonth(parseISO(commit.author.date))];
+    monthCounts.set(month, (monthCounts.get(month) || 0) + 1);
+  }
+  const busiestMonth =
+    Array.from(monthCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+    "Unknown";
+
+  // Find busiest day
+  const dayCounts = new Map<string, number>();
   for (const commit of commits) {
     const day = dayNames[getDay(parseISO(commit.author.date))];
     dayCounts.set(day, (dayCounts.get(day) || 0) + 1);
   }
-
   const busiestDay =
     Array.from(dayCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
     "Unknown";
 
   // Find favorite commit hour
   const hourCounts = new Map<number, number>();
-
   for (const commit of commits) {
     const hour = getHours(parseISO(commit.author.date));
     hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
   }
-
   const favoriteCommitHour =
-    Array.from(hourCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 12;
+    Array.from(hourCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 12;
 
   // Extract top file extensions
   const extensions = extractFileExtensions(commits);
@@ -370,16 +517,69 @@ function generateInsights(
 }
 
 /**
- * Determine personality type based on commit patterns
+ * Generate insights from PR data when commits are not available
  */
-function determinePersonality(
-  commits: GitCommit[]
+function generateInsightsFromPRs(
+  prs: GitPullRequest[],
+  monthNames: string[],
+  dayNames: string[]
+): Insights {
+  // Parse all PR creation dates
+  const dates = prs.map((pr) => parseISO(pr.creationDate));
+
+  // Determine personality type based on PR creation hours
+  const personality = determinePersonalityFromDates(dates);
+
+  // Find busiest month
+  const monthCounts = new Map<string, number>();
+  for (const date of dates) {
+    const month = monthNames[getMonth(date)];
+    monthCounts.set(month, (monthCounts.get(month) || 0) + 1);
+  }
+  const busiestMonth =
+    Array.from(monthCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+    "Unknown";
+
+  // Find busiest day
+  const dayCounts = new Map<string, number>();
+  for (const date of dates) {
+    const day = dayNames[getDay(date)];
+    dayCounts.set(day, (dayCounts.get(day) || 0) + 1);
+  }
+  const busiestDay =
+    Array.from(dayCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+    "Unknown";
+
+  // Find favorite hour
+  const hourCounts = new Map<number, number>();
+  for (const date of dates) {
+    const hour = getHours(date);
+    hourCounts.set(hour, (hourCounts.get(hour) || 0) + 1);
+  }
+  const favoriteCommitHour =
+    Array.from(hourCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 12;
+
+  return {
+    personality,
+    busiestMonth,
+    busiestDay,
+    favoriteCommitHour,
+    topFileExtensions: [], // No file extensions from PRs
+  };
+}
+
+/**
+ * Determine personality type based on activity dates
+ */
+function determinePersonalityFromDates(
+  dates: Date[]
 ): "Night Owl" | "Early Bird" | "Nine-to-Fiver" | "Weekend Warrior" {
+  if (dates.length === 0) return "Nine-to-Fiver";
+
   const hourCounts = new Map<number, number>();
   const dayCounts = new Map<number, number>();
 
-  for (const commit of commits) {
-    const date = parseISO(commit.author.date);
+  for (const date of dates) {
     const hour = getHours(date);
     const day = getDay(date);
 
@@ -387,8 +587,7 @@ function determinePersonality(
     dayCounts.set(day, (dayCounts.get(day) || 0) + 1);
   }
 
-  // Calculate percentages
-  const totalCommits = commits.length;
+  const totalCount = dates.length;
   const nightCommits =
     (hourCounts.get(22) || 0) +
     (hourCounts.get(23) || 0) +
@@ -406,12 +605,11 @@ function determinePersonality(
   ).reduce((sum, count) => sum + count, 0);
   const weekendCommits = (dayCounts.get(0) || 0) + (dayCounts.get(6) || 0);
 
-  const nightPercentage = (nightCommits / totalCommits) * 100;
-  const morningPercentage = (morningCommits / totalCommits) * 100;
-  const businessPercentage = (businessHoursCommits / totalCommits) * 100;
-  const weekendPercentage = (weekendCommits / totalCommits) * 100;
+  const nightPercentage = (nightCommits / totalCount) * 100;
+  const morningPercentage = (morningCommits / totalCount) * 100;
+  const businessPercentage = (businessHoursCommits / totalCount) * 100;
+  const weekendPercentage = (weekendCommits / totalCount) * 100;
 
-  // Determine personality
   if (weekendPercentage > 30) {
     return "Weekend Warrior";
   } else if (nightPercentage > 25) {

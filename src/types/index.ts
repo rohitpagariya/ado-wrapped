@@ -50,11 +50,23 @@ export interface PullRequestStats {
   abandoned: number;
   reviewed: number;
   avgDaysToMerge: number;
+  avgDaysToMergeFormatted: string; // Human readable e.g. "2.5 days" or "4 hours"
   largestPR: {
     id: number;
     title: string;
     filesChanged: number;
   } | null;
+  // Time-based distributions
+  byMonth: Record<string, number>; // "Jan": 5
+  byDayOfWeek: Record<string, number>; // "Monday": 3
+  byHour: Record<number, number>; // 14: 2 (2PM)
+  // Timeline info
+  firstPRDate: string;
+  lastPRDate: string;
+  // Additional stats
+  totalComments: number;
+  fastestMerge: { id: number; title: string; hours: number } | null;
+  slowestMerge: { id: number; title: string; days: number } | null;
 }
 
 // Work item statistics
