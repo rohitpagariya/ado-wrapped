@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers various deployment options for Azure DevOps Wrapped.
+This guide covers deployment options for Azure DevOps Wrapped.
 
 ## Table of Contents
 
