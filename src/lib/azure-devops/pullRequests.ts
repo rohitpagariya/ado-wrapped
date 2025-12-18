@@ -37,8 +37,12 @@ export async function fetchPullRequests(
     enableCache = true,
   } = options;
 
-  console.log(`🔄 fetchPullRequests: Starting for ${organization}/${project}/${repository}`);
-  console.log(`📅 Date range: ${fromDate} to ${toDate}, User: ${userEmail || 'all'}`);
+  console.log(
+    `🔄 fetchPullRequests: Starting for ${organization}/${project}/${repository}`
+  );
+  console.log(
+    `📅 Date range: ${fromDate} to ${toDate}, User: ${userEmail || "all"}`
+  );
 
   const client = new AzureDevOpsClient({ organization, pat, enableCache });
   const allPRs: GitPullRequest[] = [];
@@ -102,14 +106,21 @@ export async function fetchPullRequests(
       to.setHours(23, 59, 59, 999); // Include entire end date
       return creationDate >= from && creationDate <= to;
     });
-    console.log(`✅ ${filteredPRs.length} PRs in date range (filtered ${allPRs.length - filteredPRs.length})`);
+    console.log(
+      `✅ ${filteredPRs.length} PRs in date range (filtered ${
+        allPRs.length - filteredPRs.length
+      })`
+    );
 
     console.log(
       `🎉 ✓ Fetched total of ${filteredPRs.length} pull requests from ${fromDate} to ${toDate}`
     );
     return filteredPRs;
   } catch (error) {
-    console.error(`❌ Error fetching pull requests for ${organization}/${project}/${repository}:`, error);
+    console.error(
+      `❌ Error fetching pull requests for ${organization}/${project}/${repository}:`,
+      error
+    );
     throw new Error(
       `Failed to fetch pull requests: ${
         error instanceof Error ? error.message : "Unknown error"

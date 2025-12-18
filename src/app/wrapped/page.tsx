@@ -27,26 +27,36 @@ export default function WrappedPage() {
           return;
         }
 
-        const config: WrappedConfig = JSON.parse(configStr);
+        const config: WrappedConfig & { useServerPAT?: boolean } = JSON.parse(configStr);
 
         // Build API URL with query parameters
-        const params = new URLSearchParams({
-          organization: config.organization,
-          project: config.project,
-          repository: config.repository,
-          year: config.year.toString(),
-        });
+        // If using server config, don't send params (API will load from .env)
+        const params = config.useServerPAT
+          ? new URLSearchParams()
+          : new URLSearchParams({
+              organization: config.organization,
+              project: config.project,
+              repository: config.repository,
+              year: config.year.toString(),
+            });
 
-        if (config.userEmail) {
+        if (config.userEmail && !config.useServerPAT) {
           params.append("userEmail", config.userEmail);
         }
 
         // Fetch stats from API
-        const response = await fetch(`/api/stats?${params.toString()}`, {
-          headers: {
-            Authorization: `Bearer ${config.pat}`,
-          },
-        });
+        // If using server PAT, don't send Authorization header
+        const headers: HeadersInit = config.useServerPAT
+          ? {}
+          : {
+              Authorization: `Bearer ${config.pat}`,
+            };
+
+        const url = config.useServerPAT ? "/api/stats" : `/api/stats?${params.toString()}`;
+        
+        console.log(`Fetching stats from ${url}`, { useServerPAT: config.useServerPAT });
+        
+        const response = await fetch(url, { headers });
 
         if (!response.ok) {
           const errorData = await response.json();

@@ -39,26 +39,26 @@ Client-side errors may appear in the browser console (F12 → Console tab).
 
 ### Log Emoji Key
 
-| Emoji | Meaning |
-|-------|---------|
-| 🚀 | Request started |
-| 🔑 | Authentication |
-| 📋 | Parameters |
-| 📊 | Data fetching |
-| 📅 | Date range |
-| 🔄 | Parallel operations |
-| 🌐 | HTTP request |
-| 📡 | Making API call |
-| ✅ | Success |
-| ❌ | Error |
-| ⚠️ | Warning |
-| ⚪ | Cache miss |
-| 💾 | Cache write |
-| 🔍 | Fetching details |
-| 📜 | Commits operation |
-| 🔄 | Pull requests operation |
-| 🎉 | Completion |
-| 🔴 | Error response |
+| Emoji | Meaning                 |
+| ----- | ----------------------- |
+| 🚀    | Request started         |
+| 🔑    | Authentication          |
+| 📋    | Parameters              |
+| 📊    | Data fetching           |
+| 📅    | Date range              |
+| 🔄    | Parallel operations     |
+| 🌐    | HTTP request            |
+| 📡    | Making API call         |
+| ✅    | Success                 |
+| ❌    | Error                   |
+| ⚠️    | Warning                 |
+| ⚪    | Cache miss              |
+| 💾    | Cache write             |
+| 🔍    | Fetching details        |
+| 📜    | Commits operation       |
+| 🔄    | Pull requests operation |
+| 🎉    | Completion              |
+| 🔴    | Error response          |
 
 ## Common Issues and Logs to Look For
 
@@ -67,37 +67,45 @@ Client-side errors may appear in the browser console (F12 → Console tab).
 **What to check:**
 
 1. **No request started**
+
    - Missing: `[timestamp] 🚀 API Request started`
    - **Solution:** Check if frontend is calling the API correctly
 
 2. **Request started but hangs**
    Look for where it stops:
-   
+
    ```
    [timestamp] 🚀 API Request started
    [timestamp] 📋 Parameters: {...}
    [timestamp] 🔄 Starting parallel data fetch...
    // STOPS HERE - no further logs
    ```
+
    - **Solution:** API request is hanging, check network or credentials
 
 3. **Authentication error**
+
    ```
    ❌ Azure DevOps API Error: { status: 401 }
    🔑 Authentication failed - check PAT token
    ```
+
    - **Solution:** PAT token is invalid or expired
 
 4. **Resource not found**
+
    ```
    ❌ Azure DevOps API Error: { status: 404 }
    ```
+
    - **Solution:** Organization, project, or repository name is incorrect
 
 5. **Rate limiting**
+
    ```
    ❌ Azure DevOps API Error: { status: 429 }
    ```
+
    - **Solution:** Too many requests, wait and retry
 
 6. **Network timeout**
@@ -118,6 +126,7 @@ Look for timing logs:
 ```
 
 If API responses are slow (>3000ms), check:
+
 - Network connection
 - Azure DevOps service status
 - Repository size (large repos take longer)
@@ -138,6 +147,7 @@ or
 ```
 
 **Possible causes:**
+
 - Wrong date range
 - No commits in that period
 - Incorrect user email filter
@@ -146,11 +156,13 @@ or
 ## Debugging Workflow
 
 1. **Start dev server with logs visible:**
+
    ```bash
    npm run dev
    ```
 
 2. **Open the app in browser:**
+
    ```
    http://localhost:3000
    ```
@@ -158,6 +170,7 @@ or
 3. **Fill in the form and submit**
 
 4. **Watch terminal logs** for:
+
    - Request ID (helps track specific request)
    - Parameters (verify they're correct)
    - API calls (check URLs and timing)

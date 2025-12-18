@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ConfigForm, type WrappedConfig } from "@/components/ConfigForm";
 import { useToast } from "@/hooks/use-toast";
@@ -9,6 +9,43 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [checkingConfig, setCheckingConfig] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+
+  // Check for server-side config on mount
+  useEffect(() => {
+    const checkServerConfig = async () => {
+      try {
+        const response = await fetch("/api/config");
+        const data = await response.json();
+
+        if (data.hasConfig && data.config) {
+          console.log("✅ Server config found, auto-navigating to wrapped page");
+          // Store server config in sessionStorage with a flag
+          sessionStorage.setItem(
+            "ado-wrapped-config",
+            JSON.stringify({
+              ...data.config,
+              useServerPAT: true, // Flag to tell wrapped page to use server PAT
+            })
+          );
+          // Auto-navigate to wrapped page
+          router.push("/wrapped");
+        } else {
+          console.log("ℹ️ No server config, showing form");
+          setShowForm(true);
+        }
+      } catch (error) {
+        console.error("Failed to check server config:", error);
+        // Show form on error
+        setShowForm(true);
+      } finally {
+        setCheckingConfig(false);
+      }
+    };
+
+    checkServerConfig();
+  }, [router]);
 
   const handleSubmit = async (config: WrappedConfig) => {
     setLoading(true);
@@ -29,6 +66,23 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  // Show loading state while checking config
+  if (checkingConfig) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-6">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Checking configuration...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Don't show form until we've checked for server config
+  if (!showForm) {
+    return null;
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 md:p-24">

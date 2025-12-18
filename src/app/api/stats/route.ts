@@ -2,31 +2,53 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchCommits } from "@/lib/azure-devops/commits";
 import { fetchPullRequests } from "@/lib/azure-devops/pullRequests";
 import { aggregateStats } from "@/lib/azure-devops/aggregator";
+import { loadConfig, validateConfig } from "@/lib/config";
 
 export async function GET(request: NextRequest) {
   const requestId = Date.now();
   console.log(`\n[${requestId}] 🚀 API Request started`);
-  
+
   try {
     // Get PAT from Authorization header
     const authHeader = request.headers.get("authorization");
-    const pat = authHeader?.replace("Bearer ", "");
-    console.log(`[${requestId}] 🔑 PAT present: ${!!pat}`);
+    let pat = authHeader?.replace("Bearer ", "");
 
     // Get parameters from URL search params
     const searchParams = request.nextUrl.searchParams;
-    const organization = searchParams.get("organization");
-    const project = searchParams.get("project");
-    const repository = searchParams.get("repository");
-    const year = searchParams.get("year");
-    const userEmail = searchParams.get("userEmail");
-    
+    let organization = searchParams.get("organization");
+    let project = searchParams.get("project");
+    let repository = searchParams.get("repository");
+    let year = searchParams.get("year");
+    let userEmail = searchParams.get("userEmail");
+
+    // If no parameters provided, try to use server-side config from .env
+    const useServerConfig = !organization && !project && !repository && !year;
+    if (useServerConfig) {
+      console.log(`[${requestId}] 📁 Loading server-side config from .env`);
+      const serverConfig = loadConfig();
+      const validation = validateConfig(serverConfig);
+
+      if (validation.valid) {
+        pat = pat || serverConfig.pat;
+        organization = serverConfig.organization;
+        project = serverConfig.project;
+        repository = serverConfig.repository;
+        year = serverConfig.year.toString();
+        userEmail = userEmail || serverConfig.userEmail || null;
+        console.log(`[${requestId}] ✅ Using server config`);
+      } else {
+        console.error(`[${requestId}] ❌ Invalid server config:`, validation.errors);
+      }
+    }
+
+    console.log(`[${requestId}] 🔑 PAT present: ${!!pat}`);
     console.log(`[${requestId}] 📋 Parameters:`, {
       organization,
       project,
       repository,
       year,
-      userEmail: userEmail || '(none)'
+      userEmail: userEmail || "(none)",
+      source: useServerConfig ? "server-config" : "request-params",
     });
 
     // Validate required parameters
@@ -36,7 +58,7 @@ export async function GET(request: NextRequest) {
         {
           error: "Missing required parameters",
           required: [
-            "pat (Authorization header)",
+            "pat (Authorization header or .env)",
             "organization",
             "project",
             "repository",
@@ -91,12 +113,14 @@ export async function GET(request: NextRequest) {
 
     const fetchDuration = Date.now() - fetchStartTime;
     console.log(`[${requestId}] ✅ Data fetched in ${fetchDuration}ms`);
-    console.log(`[${requestId}] 📈 Commits: ${commits.length}, PRs: ${pullRequests.length}`);
+    console.log(
+      `[${requestId}] 📈 Commits: ${commits.length}, PRs: ${pullRequests.length}`
+    );
 
     // Aggregate into stats
     console.log(`[${requestId}] 🔢 Aggregating statistics...`);
     const aggregateStartTime = Date.now();
-    
+
     const stats = aggregateStats({
       commits,
       pullRequests,
@@ -111,7 +135,11 @@ export async function GET(request: NextRequest) {
 
     const aggregateDuration = Date.now() - aggregateStartTime;
     console.log(`[${requestId}] ✅ Stats aggregated in ${aggregateDuration}ms`);
-    console.log(`[${requestId}] 🎉 Request completed successfully in ${Date.now() - requestId}ms`);
+    console.log(
+      `[${requestId}] 🎉 Request completed successfully in ${
+        Date.now() - requestId
+      }ms`
+    );
 
     return NextResponse.json(stats);
   } catch (error: any) {
@@ -122,7 +150,7 @@ export async function GET(request: NextRequest) {
       response: error.response?.status,
       stack: error.stack,
     });
-    
+
     if (error.response) {
       console.error(`[${requestId}] 🌐 HTTP Error Response:`, {
         status: error.response.status,
@@ -130,7 +158,7 @@ export async function GET(request: NextRequest) {
         data: error.response.data,
       });
     }
-    
+
     return NextResponse.json(
       {
         error: error.message || "Internal server error",

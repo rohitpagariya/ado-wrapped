@@ -31,8 +31,12 @@ export async function fetchCommits(
     enableCache = true,
   } = options;
 
-  console.log(`📜 fetchCommits: Starting for ${organization}/${project}/${repository}`);
-  console.log(`📅 Date range: ${fromDate} to ${toDate}, User: ${userEmail || 'all'}`);
+  console.log(
+    `📜 fetchCommits: Starting for ${organization}/${project}/${repository}`
+  );
+  console.log(
+    `📅 Date range: ${fromDate} to ${toDate}, User: ${userEmail || "all"}`
+  );
 
   const client = new AzureDevOpsClient({ organization, pat, enableCache });
   const commits: GitCommit[] = [];
@@ -70,11 +74,15 @@ export async function fetchCommits(
         break; // No more commits
       }
 
-      console.log(`✅ Fetched ${response.value.length} commits on page ${pageCount}`);
+      console.log(
+        `✅ Fetched ${response.value.length} commits on page ${pageCount}`
+      );
 
       // Fetch detailed changes for each commit if change counts are needed
       if (includeChangeCounts) {
-        console.log(`🔍 Fetching details for ${response.value.length} commits...`);
+        console.log(
+          `🔍 Fetching details for ${response.value.length} commits...`
+        );
         const commitsWithChanges = await Promise.all(
           response.value.map(async (commit) => {
             try {
@@ -113,7 +121,10 @@ export async function fetchCommits(
     );
     return commits;
   } catch (error) {
-    console.error(`❌ Error fetching commits for ${organization}/${project}/${repository}:`, error);
+    console.error(
+      `❌ Error fetching commits for ${organization}/${project}/${repository}:`,
+      error
+    );
     throw new Error(
       `Failed to fetch commits: ${
         error instanceof Error ? error.message : "Unknown error"

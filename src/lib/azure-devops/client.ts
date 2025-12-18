@@ -63,11 +63,11 @@ export class AzureDevOpsClient {
     // Make API request
     console.log(`📡 Making API request to Azure DevOps...`);
     const requestStart = Date.now();
-    
+
     const response = await this.axiosInstance.get<T>(url, {
       params: fullParams,
     });
-    
+
     const duration = Date.now() - requestStart;
     console.log(`✅ API response received in ${duration}ms`);
 
@@ -137,7 +137,7 @@ export class AzureDevOpsClient {
 
       switch (status) {
         case 401:
-          console.error('🔑 Authentication failed - check PAT token');
+          console.error("🔑 Authentication failed - check PAT token");
           throw new Error(
             "Authentication failed. Please check your Personal Access Token (PAT)."
           );

@@ -37,7 +37,31 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) and enter your Azure DevOps details.
+Open [http://localhost:3000](http://localhost:3000).
+
+#### Two Usage Modes:
+
+**1. Auto-Configuration (Recommended for Development)**
+
+Fill in all required values in `.env`:
+
+```bash
+# Copy example and edit with your values
+cp .env.example .env
+# Edit .env with your ADO_ORGANIZATION, ADO_PROJECT, ADO_REPOSITORY, ADO_PAT, ADO_YEAR
+```
+
+When all values are present, the app will:
+- ✅ Skip the landing page form
+- ✅ Automatically fetch and display stats
+- ✅ Use server-side PAT (never sent to browser)
+
+**2. Manual Configuration (Default)**
+
+If `.env` is missing or incomplete:
+- ❌ Shows the configuration form on landing page
+- 👤 Users enter their own PAT and details
+- 🔒 PAT stored only in browser session
 
 ### Getting a PAT
 
@@ -160,14 +184,14 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on deploying to:
 
 ## Documentation
 
-| Document                                                           | Description                                 |
-| ------------------------------------------------------------------ | ------------------------------------------- |
-| [plan.md](plan.md)                                                 | Architecture and implementation details     |
-| [tasks.md](tasks.md)                                               | Future enhancements and roadmap             |
-| [DEPLOYMENT.md](DEPLOYMENT.md)                                     | Deployment guides                           |
-| [CACHING.md](CACHING.md)                                           | API response caching documentation          |
-| [DEBUGGING.md](DEBUGGING.md)                                       | Debugging guide with log interpretation     |
-| [.github/copilot-instructions.md](.github/copilot-instructions.md) | Coding guidelines                           |
+| Document                                                           | Description                             |
+| ------------------------------------------------------------------ | --------------------------------------- |
+| [plan.md](plan.md)                                                 | Architecture and implementation details |
+| [tasks.md](tasks.md)                                               | Future enhancements and roadmap         |
+| [DEPLOYMENT.md](DEPLOYMENT.md)                                     | Deployment guides                       |
+| [CACHING.md](CACHING.md)                                           | API response caching documentation      |
+| [DEBUGGING.md](DEBUGGING.md)                                       | Debugging guide with log interpretation |
+| [.github/copilot-instructions.md](.github/copilot-instructions.md) | Coding guidelines                       |
 
 ---
 
