@@ -103,6 +103,17 @@ const client = new AzureDevOpsClient({
 });
 ```
 
+### Debugging
+
+If the app gets stuck on "Fetching data" or you encounter errors, comprehensive logging is available:
+
+- **Server logs** appear in your terminal (running `npm run dev`)
+- **Request tracking** with unique IDs for each API call
+- **Timing information** for all stages (fetch, aggregate, cache)
+- **Detailed error messages** with HTTP status codes
+
+See [DEBUGGING.md](DEBUGGING.md) for the complete debugging guide with log interpretation and troubleshooting steps.
+
 ### Project Structure
 
 ```
@@ -149,12 +160,14 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on deploying to:
 
 ## Documentation
 
-| Document                                                           | Description                             |
-| ------------------------------------------------------------------ | --------------------------------------- |
-| [plan.md](plan.md)                                                 | Architecture and implementation details |
-| [tasks.md](tasks.md)                                               | Future enhancements and roadmap         |
-| [DEPLOYMENT.md](DEPLOYMENT.md)                                     | Deployment guides                       |
-| [.github/copilot-instructions.md](.github/copilot-instructions.md) | Coding guidelines                       |
+| Document                                                           | Description                                 |
+| ------------------------------------------------------------------ | ------------------------------------------- |
+| [plan.md](plan.md)                                                 | Architecture and implementation details     |
+| [tasks.md](tasks.md)                                               | Future enhancements and roadmap             |
+| [DEPLOYMENT.md](DEPLOYMENT.md)                                     | Deployment guides                           |
+| [CACHING.md](CACHING.md)                                           | API response caching documentation          |
+| [DEBUGGING.md](DEBUGGING.md)                                       | Debugging guide with log interpretation     |
+| [.github/copilot-instructions.md](.github/copilot-instructions.md) | Coding guidelines                           |
 
 ---
 
