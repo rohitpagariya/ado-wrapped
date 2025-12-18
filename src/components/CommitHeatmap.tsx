@@ -15,11 +15,10 @@ export function CommitHeatmap({ commits, year }: CommitHeatmapProps) {
     const startDate = new Date(year, 0, 1);
     const endDate = new Date(year, 11, 31);
 
-    // Create a map of dates to counts from actual commit data
+    // Count commits per date from actual commit data
     const commitsByDate: Record<string, number> = {};
 
-    // For simplicity, we'll distribute commits across the year
-    // In a real implementation, this would use actual commit dates
+    // Initialize all dates to 0
     for (
       let d = new Date(startDate);
       d <= endDate;
@@ -29,42 +28,15 @@ export function CommitHeatmap({ commits, year }: CommitHeatmapProps) {
       commitsByDate[dateStr] = 0;
     }
 
-    // Simulate some commit distribution for demo
-    // In production, you'd parse firstCommitDate, lastCommitDate and byMonth data
-    Object.keys(commits.byMonth || {}).forEach((month) => {
-      const count = commits.byMonth[month];
-      const monthIndex = [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ].indexOf(month);
-
-      if (monthIndex !== -1 && count > 0) {
-        // Distribute commits across days in the month
-        const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
-        const avgPerDay = Math.ceil(count / daysInMonth);
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const date = new Date(year, monthIndex, day);
-          if (date <= endDate) {
-            const dateStr = date.toISOString().split("T")[0];
-            commitsByDate[dateStr] = Math.max(
-              0,
-              avgPerDay + Math.floor(Math.random() * 3 - 1)
-            );
-          }
+    // Count actual commits per date from real data
+    if (commits.commitDates && commits.commitDates.length > 0) {
+      for (const dateStr of commits.commitDates) {
+        // Only count dates within the year
+        if (dateStr in commitsByDate) {
+          commitsByDate[dateStr]++;
         }
       }
-    });
+    }
 
     // Convert to array
     for (

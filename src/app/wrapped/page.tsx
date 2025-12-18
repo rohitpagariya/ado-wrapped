@@ -2,13 +2,59 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { exportToJSON, exportToMarkdown } from "@/lib/export";
 import type { WrappedStats } from "@/types";
 import type { WrappedConfig } from "@/components/ConfigForm";
-import { Download, FileJson, FileText } from "lucide-react";
+import { Download, FileJson, FileText, Check, Loader2 } from "lucide-react";
+
+// Loading step indicator component
+function LoadingStepIndicator({
+  step,
+  isComplete,
+  isActive,
+}: {
+  step: string;
+  isComplete: boolean;
+  isActive: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <div
+        className={`
+        w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium transition-all duration-300
+        ${
+          isComplete
+            ? "bg-green-500 text-white"
+            : isActive
+            ? "bg-blue-500 text-white animate-pulse"
+            : "bg-white/10 text-slate-500"
+        }
+      `}
+      >
+        {isComplete ? (
+          <Check className="w-4 h-4" />
+        ) : isActive ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <span className="w-2 h-2 rounded-full bg-current" />
+        )}
+      </div>
+      <span
+        className={`text-sm transition-colors duration-300 ${
+          isComplete
+            ? "text-green-400"
+            : isActive
+            ? "text-white"
+            : "text-slate-500"
+        }`}
+      >
+        {step}
+      </span>
+    </div>
+  );
+}
 
 // Format hour to 12-hour format with AM/PM
 function formatHour(hour: number): string {
@@ -39,10 +85,29 @@ export default function WrappedPage() {
   const [stats, setStats] = useState<WrappedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [loadingStep, setLoadingStep] = useState<string>("Initializing...");
+  const [loadingProgress, setLoadingProgress] = useState(0);
 
   useEffect(() => {
+    // Helper to ensure minimum time on each step so users can see progress
+    const delay = (ms: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms));
+
+    // Update step with minimum display time (default 500ms for consistency)
+    const updateStep = async (
+      step: string,
+      progress: number,
+      minDelayMs: number = 500
+    ) => {
+      setLoadingStep(step);
+      setLoadingProgress(progress);
+      await delay(minDelayMs);
+    };
+
     const fetchStats = async () => {
       try {
+        await updateStep("Loading configuration...", 10);
+
         // Get config from sessionStorage
         const configStr = sessionStorage.getItem("ado-wrapped-config");
         if (!configStr) {
@@ -52,6 +117,8 @@ export default function WrappedPage() {
 
         const config: WrappedConfig & { useServerPAT?: boolean } =
           JSON.parse(configStr);
+
+        await updateStep("Preparing API request...", 20);
 
         // Build API URL with query parameters
         // If using server config, don't send params (API will load from .env)
@@ -80,18 +147,30 @@ export default function WrappedPage() {
           ? "/api/stats"
           : `/api/stats?${params.toString()}`;
 
+        await updateStep("Fetching commits and pull requests...", 40);
+
         console.log(`Fetching stats from ${url}`, {
           useServerPAT: config.useServerPAT,
         });
 
         const response = await fetch(url, { headers });
 
+        await updateStep("Processing response...", 70);
+
         if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to fetch stats");
         }
 
+        await updateStep("Analyzing your activity...", 80);
+
         const data: WrappedStats = await response.json();
+
+        await updateStep("Generating your Wrapped...", 90);
+
+        // Final step - show completion briefly before transitioning
+        await updateStep("Ready! 🎉", 100);
+
         setStats(data);
         setLoading(false);
       } catch (err: any) {
@@ -112,18 +191,60 @@ export default function WrappedPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex flex-col items-center justify-center p-6">
-        <div className="w-full max-w-2xl space-y-4">
-          <Skeleton className="h-12 w-3/4 mx-auto bg-white/10" />
-          <Skeleton className="h-64 w-full bg-white/10" />
-          <Skeleton className="h-64 w-full bg-white/10" />
-          <div className="text-center mt-8">
-            <p className="text-white text-lg">
-              Fetching your Azure DevOps data...
-            </p>
-            <p className="text-slate-400 text-sm mt-2">
-              This may take a minute
-            </p>
+        <div className="w-full max-w-md space-y-6">
+          {/* Animated logo/icon */}
+          <div className="flex justify-center">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 animate-pulse flex items-center justify-center">
+              <span className="text-3xl">🎁</span>
+            </div>
           </div>
+
+          {/* Title */}
+          <h2 className="text-2xl font-bold text-white text-center">
+            Building Your Wrapped
+          </h2>
+
+          {/* Progress bar */}
+          <div className="space-y-2">
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-400">{loadingStep}</span>
+              <span className="text-slate-500">{loadingProgress}%</span>
+            </div>
+          </div>
+
+          {/* Loading steps indicator */}
+          <div className="space-y-3 pt-4">
+            <LoadingStepIndicator
+              step="Configuration"
+              isComplete={loadingProgress >= 20}
+              isActive={loadingProgress >= 10 && loadingProgress < 20}
+            />
+            <LoadingStepIndicator
+              step="Fetching commits"
+              isComplete={loadingProgress >= 70}
+              isActive={loadingProgress >= 20 && loadingProgress < 70}
+            />
+            <LoadingStepIndicator
+              step="Analyzing data"
+              isComplete={loadingProgress >= 90}
+              isActive={loadingProgress >= 70 && loadingProgress < 90}
+            />
+            <LoadingStepIndicator
+              step="Generating insights"
+              isComplete={loadingProgress >= 100}
+              isActive={loadingProgress >= 90 && loadingProgress < 100}
+            />
+          </div>
+
+          <p className="text-slate-500 text-sm text-center">
+            This may take a moment for large repositories
+          </p>
         </div>
       </div>
     );

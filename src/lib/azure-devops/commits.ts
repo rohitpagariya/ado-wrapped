@@ -118,25 +118,6 @@ export async function fetchCommits(
 }
 
 /**
- * Fetch detailed commit information including changes
- */
-async function fetchCommitDetails(
-  client: AzureDevOpsClient,
-  project: string,
-  repository: string,
-  commitId: string
-): Promise<GitCommit> {
-  const url = `/${project}/_apis/git/repositories/${repository}/commits/${commitId}`;
-
-  const params = {
-    changeCount: 1000, // Get up to 1000 file changes
-  };
-
-  const commit = await client.get<GitCommit>(url, params);
-  return commit;
-}
-
-/**
  * Get commit statistics aggregated by date
  */
 export function groupCommitsByDate(

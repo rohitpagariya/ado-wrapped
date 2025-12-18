@@ -41,6 +41,7 @@ export interface CommitStats {
   firstCommitDate: string;
   lastCommitDate: string;
   topCommitMessages: string[]; // Most common words
+  commitDates: string[]; // Array of YYYY-MM-DD dates for heatmap
 }
 
 // Pull request statistics

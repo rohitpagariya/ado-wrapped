@@ -75,20 +75,31 @@ export function TimeDistributionChart({ commits }: TimeDistributionChartProps) {
                 data={hourData}
                 margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-gray-200 dark:stroke-gray-700"
+                />
                 <XAxis
                   dataKey="label"
                   tick={{ fontSize: 10 }}
                   interval={3}
-                  stroke="#6b7280"
+                  className="text-gray-600 dark:text-gray-400"
+                  stroke="currentColor"
                 />
-                <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  className="text-gray-600 dark:text-gray-400"
+                  stroke="currentColor"
+                />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    border: "1px solid #e5e7eb",
+                    backgroundColor:
+                      "var(--tooltip-bg, rgba(255, 255, 255, 0.95))",
+                    border: "1px solid var(--tooltip-border, #e5e7eb)",
                     borderRadius: "8px",
+                    color: "var(--tooltip-text, #1f2937)",
                   }}
+                  wrapperClassName="[--tooltip-bg:rgba(255,255,255,0.95)] dark:[--tooltip-bg:rgba(30,41,59,0.95)] [--tooltip-border:#e5e7eb] dark:[--tooltip-border:#475569] [--tooltip-text:#1f2937] dark:[--tooltip-text:#f1f5f9]"
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                   {hourData.map((entry, index) => (
@@ -122,15 +133,30 @@ export function TimeDistributionChart({ commits }: TimeDistributionChartProps) {
                 data={dayData}
                 margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="day" tick={{ fontSize: 12 }} stroke="#6b7280" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#6b7280" />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  className="stroke-gray-200 dark:stroke-gray-700"
+                />
+                <XAxis
+                  dataKey="day"
+                  tick={{ fontSize: 12 }}
+                  className="text-gray-600 dark:text-gray-400"
+                  stroke="currentColor"
+                />
+                <YAxis
+                  tick={{ fontSize: 12 }}
+                  className="text-gray-600 dark:text-gray-400"
+                  stroke="currentColor"
+                />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "rgba(255, 255, 255, 0.95)",
-                    border: "1px solid #e5e7eb",
+                    backgroundColor:
+                      "var(--tooltip-bg, rgba(255, 255, 255, 0.95))",
+                    border: "1px solid var(--tooltip-border, #e5e7eb)",
                     borderRadius: "8px",
+                    color: "var(--tooltip-text, #1f2937)",
                   }}
+                  wrapperClassName="[--tooltip-bg:rgba(255,255,255,0.95)] dark:[--tooltip-bg:rgba(30,41,59,0.95)] [--tooltip-border:#e5e7eb] dark:[--tooltip-border:#475569] [--tooltip-text:#1f2937] dark:[--tooltip-text:#f1f5f9]"
                 />
                 <Bar dataKey="count" radius={[4, 4, 0, 0]}>
                   {dayData.map((entry, index) => (

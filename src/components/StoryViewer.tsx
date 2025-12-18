@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import type { WrappedStats } from "@/types";
+import type { StoryCardType } from "@/lib/constants";
 import { StatsCard } from "@/components/StatsCard";
 import { CommitHeatmap } from "@/components/CommitHeatmap";
 import { LanguageChart } from "@/components/LanguageChart";
@@ -13,6 +14,11 @@ import { TimeDistributionChart } from "@/components/TimeDistributionChart";
 import { PRStats } from "@/components/PRStats";
 import { InsightsCard } from "@/components/InsightsCard";
 import { ExportButton } from "@/components/ExportButton";
+
+interface StoryCard {
+  type: StoryCardType;
+  data: WrappedStats;
+}
 
 interface StoryViewerProps {
   stats: WrappedStats;
@@ -23,41 +29,35 @@ export function StoryViewer({ stats }: StoryViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [direction, setDirection] = useState(0);
 
-  // Define all the story cards
-  const cards = [
-    // Welcome card
+  // Define all the story cards with type safety
+  const cards: StoryCard[] = [
     { type: "welcome", data: stats },
-    // Total commits
     { type: "commits-total", data: stats },
-    // Lines of code
     { type: "lines-of-code", data: stats },
-    // Commit heatmap
     { type: "heatmap", data: stats },
-    // Time distribution
     { type: "time-distribution", data: stats },
-    // Language distribution
     { type: "languages", data: stats },
-    // Longest streak
     { type: "streak", data: stats },
-    // Pull requests
     { type: "pull-requests", data: stats },
-    // Insights/Personality
     { type: "insights", data: stats },
-    // Final card
     { type: "finale", data: stats },
   ];
 
   const totalCards = cards.length;
 
-  const navigate = (newDirection: number) => {
-    setDirection(newDirection);
-    setCurrentIndex((prev) => {
-      const next = prev + newDirection;
-      if (next < 0) return 0;
-      if (next >= totalCards) return totalCards - 1;
-      return next;
-    });
-  };
+  // Memoized navigation function to prevent unnecessary re-renders
+  const navigate = useCallback(
+    (newDirection: number) => {
+      setDirection(newDirection);
+      setCurrentIndex((prev) => {
+        const next = prev + newDirection;
+        if (next < 0) return 0;
+        if (next >= totalCards) return totalCards - 1;
+        return next;
+      });
+    },
+    [totalCards]
+  );
 
   // Keyboard navigation
   useEffect(() => {
@@ -69,8 +69,7 @@ export function StoryViewer({ stats }: StoryViewerProps) {
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, [router, navigate]);
 
   const currentCard = cards[currentIndex];
 
@@ -99,16 +98,30 @@ export function StoryViewer({ stats }: StoryViewerProps) {
         size="icon"
         className="absolute top-4 right-4 z-50"
         onClick={() => router.push("/")}
+        aria-label="Close and return to home"
       >
         <X className="h-5 w-5" />
       </Button>
 
       {/* Progress indicators */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1 z-50">
-        {cards.map((_, index) => (
-          <div
+      <div
+        className="absolute top-4 left-1/2 -translate-x-1/2 flex gap-1 z-50"
+        role="tablist"
+        aria-label="Story progress"
+      >
+        {cards.map((card, index) => (
+          <button
             key={index}
-            className={`h-1 rounded-full transition-all duration-300 ${
+            role="tab"
+            aria-selected={index === currentIndex}
+            aria-label={`Go to slide ${
+              index + 1
+            } of ${totalCards}: ${card.type.replace("-", " ")}`}
+            onClick={() => {
+              setDirection(index > currentIndex ? 1 : -1);
+              setCurrentIndex(index);
+            }}
+            className={`h-1 rounded-full transition-all duration-300 cursor-pointer hover:opacity-80 ${
               index === currentIndex
                 ? "w-8 bg-white"
                 : index < currentIndex
@@ -148,6 +161,7 @@ export function StoryViewer({ stats }: StoryViewerProps) {
           onClick={() => navigate(-1)}
           disabled={currentIndex === 0}
           className="bg-white/90 hover:bg-white"
+          aria-label="Previous slide"
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -157,6 +171,7 @@ export function StoryViewer({ stats }: StoryViewerProps) {
           onClick={() => navigate(1)}
           disabled={currentIndex === totalCards - 1}
           className="bg-white/90 hover:bg-white"
+          aria-label="Next slide"
         >
           <ChevronRight className="h-5 w-5" />
         </Button>

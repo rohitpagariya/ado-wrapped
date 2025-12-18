@@ -24,6 +24,11 @@ import {
   getPRStatsByStatus,
   findLargestPR,
 } from "./pullRequests";
+import {
+  DAY_NAMES,
+  MONTH_NAMES,
+  COMMIT_MESSAGE_STOP_WORDS,
+} from "../constants";
 
 export interface AggregatorInput {
   commits: GitCommit[];
@@ -82,33 +87,10 @@ function aggregateCommitStats(commits: GitCommit[]): CommitStats {
   const byMonth: Record<string, number> = {};
   const byDayOfWeek: Record<string, number> = {};
   const byHour: Record<number, number> = {};
-  const dayNames = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
 
-  // Initialize
-  monthNames.forEach((month) => (byMonth[month] = 0));
-  dayNames.forEach((day) => (byDayOfWeek[day] = 0));
+  // Initialize from constants
+  MONTH_NAMES.forEach((month) => (byMonth[month] = 0));
+  DAY_NAMES.forEach((day) => (byDayOfWeek[day] = 0));
   for (let i = 0; i < 24; i++) {
     byHour[i] = 0;
   }
@@ -116,9 +98,13 @@ function aggregateCommitStats(commits: GitCommit[]): CommitStats {
   let firstCommitDate = "";
   let lastCommitDate = "";
   const commitMessages: string[] = [];
+  const commitDates: string[] = []; // Collect all commit dates for heatmap
 
   for (const commit of commits) {
     const date = parseISO(commit.author.date);
+
+    // Collect date for heatmap (YYYY-MM-DD format)
+    commitDates.push(commit.author.date.split("T")[0]);
 
     // Track first and last commit
     if (!firstCommitDate || commit.author.date < firstCommitDate) {
@@ -129,11 +115,11 @@ function aggregateCommitStats(commits: GitCommit[]): CommitStats {
     }
 
     // By month
-    const month = monthNames[getMonth(date)];
+    const month = MONTH_NAMES[getMonth(date)];
     byMonth[month]++;
 
     // By day of week
-    const dayOfWeek = dayNames[getDay(date)];
+    const dayOfWeek = DAY_NAMES[getDay(date)];
     byDayOfWeek[dayOfWeek]++;
 
     // By hour
@@ -167,6 +153,7 @@ function aggregateCommitStats(commits: GitCommit[]): CommitStats {
     firstCommitDate,
     lastCommitDate,
     topCommitMessages,
+    commitDates,
   };
 }
 
@@ -185,33 +172,10 @@ function aggregatePRStats(
   const byMonth: Record<string, number> = {};
   const byDayOfWeek: Record<string, number> = {};
   const byHour: Record<number, number> = {};
-  const dayNames = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
 
-  // Initialize
-  monthNames.forEach((month) => (byMonth[month] = 0));
-  dayNames.forEach((day) => (byDayOfWeek[day] = 0));
+  // Initialize from constants
+  MONTH_NAMES.forEach((month) => (byMonth[month] = 0));
+  DAY_NAMES.forEach((day) => (byDayOfWeek[day] = 0));
   for (let i = 0; i < 24; i++) {
     byHour[i] = 0;
   }
@@ -235,11 +199,11 @@ function aggregatePRStats(
     }
 
     // By month
-    const month = monthNames[getMonth(date)];
+    const month = MONTH_NAMES[getMonth(date)];
     byMonth[month]++;
 
     // By day of week
-    const dayOfWeek = dayNames[getDay(date)];
+    const dayOfWeek = DAY_NAMES[getDay(date)];
     byDayOfWeek[dayOfWeek]++;
 
     // By hour
@@ -346,54 +310,14 @@ function calculateLongestStreak(commits: GitCommit[]): number {
 function extractTopWords(messages: string[], topN: number = 10): string[] {
   const wordCounts = new Map<string, number>();
 
-  // Common words to filter out
-  const stopWords = new Set([
-    "the",
-    "a",
-    "an",
-    "and",
-    "or",
-    "but",
-    "in",
-    "on",
-    "at",
-    "to",
-    "for",
-    "of",
-    "with",
-    "is",
-    "was",
-    "are",
-    "been",
-    "be",
-    "have",
-    "has",
-    "had",
-    "do",
-    "does",
-    "did",
-    "will",
-    "would",
-    "could",
-    "should",
-    "may",
-    "might",
-    "merge",
-    "merged",
-    "pull",
-    "request",
-    "pr",
-    "from",
-    "into",
-    "branch",
-  ]);
-
   for (const message of messages) {
     const words = message
       .toLowerCase()
       .replace(/[^\w\s]/g, " ")
       .split(/\s+/)
-      .filter((word) => word.length > 3 && !stopWords.has(word));
+      .filter(
+        (word) => word.length > 3 && !COMMIT_MESSAGE_STOP_WORDS.has(word)
+      );
 
     for (const word of words) {
       wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
@@ -414,38 +338,14 @@ function generateInsights(
   commits: GitCommit[],
   prs: GitPullRequest[]
 ): Insights {
-  const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const dayNames = [
-    "Sunday",
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
-    "Saturday",
-  ];
-
   // If we have commits, use them for insights
   if (commits.length > 0) {
-    return generateInsightsFromCommits(commits, monthNames, dayNames);
+    return generateInsightsFromCommits(commits);
   }
 
   // Fall back to PR data if no commits
   if (prs.length > 0) {
-    return generateInsightsFromPRs(prs, monthNames, dayNames);
+    return generateInsightsFromPRs(prs);
   }
 
   // No data at all - return defaults
@@ -461,11 +361,7 @@ function generateInsights(
 /**
  * Generate insights from commit data
  */
-function generateInsightsFromCommits(
-  commits: GitCommit[],
-  monthNames: string[],
-  dayNames: string[]
-): Insights {
+function generateInsightsFromCommits(commits: GitCommit[]): Insights {
   // Determine personality type based on commit hours
   const personality = determinePersonalityFromDates(
     commits.map((c) => parseISO(c.author.date))
@@ -474,7 +370,7 @@ function generateInsightsFromCommits(
   // Find busiest month
   const monthCounts = new Map<string, number>();
   for (const commit of commits) {
-    const month = monthNames[getMonth(parseISO(commit.author.date))];
+    const month = MONTH_NAMES[getMonth(parseISO(commit.author.date))];
     monthCounts.set(month, (monthCounts.get(month) || 0) + 1);
   }
   const busiestMonth =
@@ -484,7 +380,7 @@ function generateInsightsFromCommits(
   // Find busiest day
   const dayCounts = new Map<string, number>();
   for (const commit of commits) {
-    const day = dayNames[getDay(parseISO(commit.author.date))];
+    const day = DAY_NAMES[getDay(parseISO(commit.author.date))];
     dayCounts.set(day, (dayCounts.get(day) || 0) + 1);
   }
   const busiestDay =
@@ -519,11 +415,7 @@ function generateInsightsFromCommits(
 /**
  * Generate insights from PR data when commits are not available
  */
-function generateInsightsFromPRs(
-  prs: GitPullRequest[],
-  monthNames: string[],
-  dayNames: string[]
-): Insights {
+function generateInsightsFromPRs(prs: GitPullRequest[]): Insights {
   // Parse all PR creation dates
   const dates = prs.map((pr) => parseISO(pr.creationDate));
 
@@ -533,7 +425,7 @@ function generateInsightsFromPRs(
   // Find busiest month
   const monthCounts = new Map<string, number>();
   for (const date of dates) {
-    const month = monthNames[getMonth(date)];
+    const month = MONTH_NAMES[getMonth(date)];
     monthCounts.set(month, (monthCounts.get(month) || 0) + 1);
   }
   const busiestMonth =
@@ -543,7 +435,7 @@ function generateInsightsFromPRs(
   // Find busiest day
   const dayCounts = new Map<string, number>();
   for (const date of dates) {
-    const day = dayNames[getDay(date)];
+    const day = DAY_NAMES[getDay(date)];
     dayCounts.set(day, (dayCounts.get(day) || 0) + 1);
   }
   const busiestDay =

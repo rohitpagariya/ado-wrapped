@@ -215,3 +215,73 @@ The API route is at `src/app/api/stats/route.ts`:
 - Accepts query params: organization, project, repository, year, userEmail
 - Returns `WrappedStats` JSON
 - PAT passed via Authorization header
+
+## AI Agent Guidelines
+
+### For Code Completion
+
+- Always check existing types in `src/types/index.ts` before creating new ones
+- Use the existing `cn()` utility from `src/lib/utils.ts` for conditional classes
+- Follow the component pattern in `src/components/ui/` for new UI elements
+- Import constants from `src/lib/constants.ts` instead of hardcoding values
+- Use `StoryCardType` from constants when adding new story cards
+
+### For Debugging
+
+- Start by checking the terminal for emoji-prefixed logs:
+  - 🚀 Request start | 🔑 Auth | 📋 Params | 🌐 HTTP calls
+  - ✅ Success | ❌ Error | ⚪ Cache miss | ⏰ Cache expired | 💾 Cache write
+- Use `npm run cache:clear` if data seems stale
+- Use `npm run cache:stats` to check cache size
+- Check `get_errors` tool output for TypeScript issues
+- Run `npm run type-check` to validate all TypeScript
+
+### For Adding Features
+
+1. Determine if it's API-side (`src/lib/azure-devops/`) or UI-side (`src/components/`)
+2. Check if similar patterns exist in the codebase
+3. Update types in `src/types/index.ts` first, then implementation
+4. Add to `StoryViewer.tsx` cards array if it's a new visualization
+5. Update `STORY_CARD_TYPES` in `src/lib/constants.ts` for new card types
+
+### Common Patterns
+
+**Adding a New Stat to the Dashboard:**
+
+1. Add the type to `WrappedStats` in `src/types/index.ts`
+2. Populate it in `src/lib/azure-devops/aggregator.ts`
+3. Create a visualization component in `src/components/`
+4. Add the card type to `STORY_CARD_TYPES` in `src/lib/constants.ts`
+5. Add to `StoryViewer.tsx` cards array and `renderCard` function
+
+**Error Handling Pattern:**
+
+```typescript
+return NextResponse.json(
+  { error: "Human-readable message", code: "ERROR_CODE", details: { ... } },
+  { status: 400 }
+);
+```
+
+### Anti-Patterns to Avoid
+
+- ❌ Don't duplicate types (check `src/types/` first)
+- ❌ Don't use raw string colors (use Tailwind classes)
+- ❌ Don't skip error handling in API routes
+- ❌ Don't hardcode API versions (use `src/lib/constants.ts`)
+- ❌ Don't use `var` or non-const declarations unnecessarily
+- ❌ Don't use localStorage for sensitive data (PAT should use sessionStorage)
+
+### File Naming Conventions
+
+- Components: PascalCase (e.g., `NewChart.tsx`)
+- Utilities: camelCase (e.g., `newHelper.ts`)
+- Types: Include in existing files when related to existing types
+- Constants: Add to `src/lib/constants.ts` for shared values
+
+### Performance Considerations
+
+- Charts are heavy - consider dynamic imports for new visualizations
+- API responses are cached by default (24hr TTL) - disable only when debugging
+- Use `useCallback` for event handlers passed to child components
+- Use `useMemo` for expensive computations in components

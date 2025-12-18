@@ -1,8 +1,20 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import { DEFAULT_CACHE_TTL_HOURS } from "../constants";
 
 const CACHE_DIR = path.join(process.cwd(), ".ado-cache");
+
+/**
+ * Cache entry structure with optional expiration
+ */
+interface CacheEntry<T> {
+  url: string;
+  params?: Record<string, any>;
+  timestamp: string;
+  expiresAt?: string;
+  data: T;
+}
 
 /**
  * Generate a deterministic cache key based on request parameters
@@ -39,6 +51,14 @@ function getCacheFilePath(cacheKey: string): string {
 }
 
 /**
+ * Check if a cache entry has expired
+ */
+function isExpired(expiresAt?: string): boolean {
+  if (!expiresAt) return false;
+  return new Date(expiresAt) < new Date();
+}
+
+/**
  * Ensure cache directory exists
  */
 function ensureCacheDir(): void {
@@ -48,11 +68,15 @@ function ensureCacheDir(): void {
 }
 
 /**
- * Read from cache
+ * Read from cache with optional TTL check
+ * @param url - The URL that was cached
+ * @param params - The request parameters
+ * @param ttlHours - Time-to-live in hours (default: 24). Set to 0 to ignore expiration.
  */
 export function readCache<T>(
   url: string,
-  params?: Record<string, any>
+  params?: Record<string, any>,
+  ttlHours: number = DEFAULT_CACHE_TTL_HOURS
 ): T | null {
   try {
     const cacheKey = generateCacheKey(url, params);
@@ -64,24 +88,40 @@ export function readCache<T>(
     }
 
     const content = fs.readFileSync(filePath, "utf-8");
-    const cached = JSON.parse(content);
+    const cached: CacheEntry<T> = JSON.parse(content);
+
+    // Check expiration if TTL is set
+    if (ttlHours > 0 && isExpired(cached.expiresAt)) {
+      console.log(`⏰ Cache EXPIRED for ${url} (expired: ${cached.expiresAt})`);
+      // Optionally delete expired cache file
+      try {
+        fs.unlinkSync(filePath);
+      } catch {
+        // Ignore deletion errors
+      }
+      return null;
+    }
 
     console.log(`✅ Cache HIT for ${url} (cached: ${cached.timestamp})`);
-    return cached.data as T;
+    return cached.data;
   } catch (error) {
     console.error(`❌ Cache read error for ${url}:`, error);
-    console.warn(`Cache read error for ${url}:`, error);
     return null;
   }
 }
 
 /**
- * Write to cache
+ * Write to cache with optional TTL
+ * @param url - The URL being cached
+ * @param params - The request parameters
+ * @param data - The data to cache
+ * @param ttlHours - Time-to-live in hours (default: 24). Set to 0 for no expiration.
  */
 export function writeCache<T>(
   url: string,
   params: Record<string, any> | undefined,
-  data: T
+  data: T,
+  ttlHours: number = DEFAULT_CACHE_TTL_HOURS
 ): void {
   try {
     ensureCacheDir();
@@ -89,10 +129,17 @@ export function writeCache<T>(
     const cacheKey = generateCacheKey(url, params);
     const filePath = getCacheFilePath(cacheKey);
 
-    const cacheEntry = {
+    const now = new Date();
+    const expiresAt =
+      ttlHours > 0
+        ? new Date(now.getTime() + ttlHours * 60 * 60 * 1000).toISOString()
+        : undefined;
+
+    const cacheEntry: CacheEntry<T> = {
       url,
       params,
-      timestamp: new Date().toISOString(),
+      timestamp: now.toISOString(),
+      expiresAt,
       data,
     };
 

@@ -13,15 +13,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import type { WrappedConfig } from "@/types";
 
-export interface WrappedConfig {
-  pat: string;
-  organization: string;
-  project: string;
-  repository: string;
-  year: number;
-  userEmail?: string;
-}
+// Re-export for backward compatibility
+export type { WrappedConfig } from "@/types";
 
 interface ConfigFormProps {
   onSubmit: (config: WrappedConfig) => void;
@@ -31,7 +26,10 @@ interface ConfigFormProps {
 export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
   const { toast } = useToast();
   const [config, setConfig] = useState<WrappedConfig>(() => {
-    // Try to load from localStorage
+    // NOTE: We use localStorage (not sessionStorage) to persist non-sensitive config
+    // (org, project, repo, year) across sessions for convenience.
+    // The PAT is explicitly excluded when saving (see handleSubmit) for security.
+    // The PAT is only stored in sessionStorage via the parent page after submission.
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("ado-wrapped-config");
       if (saved) {

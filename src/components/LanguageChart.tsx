@@ -68,11 +68,13 @@ export function LanguageChart({ extensions }: LanguageChartProps) {
           </Pie>
           <Tooltip
             contentStyle={{
-              backgroundColor: "rgba(255, 255, 255, 0.95)",
-              border: "1px solid #e5e7eb",
+              backgroundColor: "var(--tooltip-bg, rgba(255, 255, 255, 0.95))",
+              border: "1px solid var(--tooltip-border, #e5e7eb)",
               borderRadius: "8px",
               padding: "8px 12px",
+              color: "var(--tooltip-text, #1f2937)",
             }}
+            wrapperClassName="[--tooltip-bg:rgba(255,255,255,0.95)] dark:[--tooltip-bg:rgba(30,41,59,0.95)] [--tooltip-border:#e5e7eb] dark:[--tooltip-border:#475569] [--tooltip-text:#1f2937] dark:[--tooltip-text:#f1f5f9]"
           />
           <Legend
             verticalAlign="bottom"
