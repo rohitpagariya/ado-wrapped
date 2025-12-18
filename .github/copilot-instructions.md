@@ -1,7 +1,7 @@
 # GitHub Copilot Instructions for ADO Wrapped
 
 > **Purpose**: This file provides coding guidelines, tech stack details, and common development patterns for AI assistants and developers working on this project.
-> 
+>
 > For architecture and application flow, see [plan.md](../plan.md).  
 > For setup and usage, see [README.md](../README.md).
 
