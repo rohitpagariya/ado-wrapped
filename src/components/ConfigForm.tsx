@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 import { useToast } from "@/hooks/use-toast";
 import type { WrappedConfig } from "@/types";
 
@@ -22,6 +23,12 @@ interface ConfigFormProps {
   onSubmit: (config: WrappedConfig) => void;
   loading?: boolean;
   initialConfig?: Partial<WrappedConfig>;
+}
+
+interface ProjectInfo {
+  id: string;
+  name: string;
+  description?: string;
 }
 
 export function ConfigForm({
@@ -35,7 +42,7 @@ export function ConfigForm({
     const defaults: WrappedConfig = {
       pat: "",
       organization: "",
-      project: "",
+      projects: [],
       repository: "",
       year: new Date().getFullYear() - 1, // Default to last year
       userEmail: "",
@@ -48,6 +55,11 @@ export function ConfigForm({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
+          // Handle migration from old 'project' field to new 'projects' array
+          if (parsed.project && !parsed.projects) {
+            parsed.projects = [parsed.project];
+            delete parsed.project;
+          }
           return { ...defaults, ...parsed };
         } catch (e) {
           console.error("Failed to parse saved config:", e);
@@ -57,6 +69,11 @@ export function ConfigForm({
 
     return defaults;
   });
+
+  // State for available projects from API
+  const [availableProjects, setAvailableProjects] = useState<ProjectInfo[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
 
   // Apply initialConfig from server (env variables) when provided
   // This runs after mount, allowing server config to override localStorage
@@ -72,6 +89,55 @@ export function ConfigForm({
     }
   }, [initialConfig]);
 
+  // Fetch projects when organization and PAT are both available
+  const fetchProjects = useCallback(
+    async (organization: string, pat: string) => {
+      if (!organization.trim() || !pat.trim()) {
+        setAvailableProjects([]);
+        return;
+      }
+
+      setProjectsLoading(true);
+      setProjectsError(null);
+
+      try {
+        const response = await fetch(
+          `/api/projects?organization=${encodeURIComponent(organization)}`,
+          {
+            headers: {
+              Authorization: `Bearer ${pat}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to fetch projects");
+        }
+
+        const data = await response.json();
+        setAvailableProjects(data.projects || []);
+        console.log(`📋 Loaded ${data.projects?.length || 0} projects`);
+      } catch (error: any) {
+        console.error("Failed to fetch projects:", error);
+        setProjectsError(error.message);
+        setAvailableProjects([]);
+      } finally {
+        setProjectsLoading(false);
+      }
+    },
+    []
+  );
+
+  // Debounced fetch when org or PAT changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchProjects(config.organization, config.pat);
+    }, 500); // Wait 500ms after user stops typing
+
+    return () => clearTimeout(timeoutId);
+  }, [config.organization, config.pat, fetchProjects]);
+
   const [errors, setErrors] = useState<
     Partial<Record<keyof WrappedConfig, string>>
   >({});
@@ -85,8 +151,8 @@ export function ConfigForm({
     if (!config.organization.trim()) {
       newErrors.organization = "Organization name is required";
     }
-    if (!config.project.trim()) {
-      newErrors.project = "Project name is required";
+    if (!config.projects || config.projects.length === 0) {
+      newErrors.projects = "At least one project must be selected";
     }
     if (!config.repository.trim()) {
       newErrors.repository = "Repository name is required";
@@ -123,13 +189,23 @@ export function ConfigForm({
     onSubmit(config);
   };
 
-  const handleChange = (field: keyof WrappedConfig, value: string | number) => {
+  const handleChange = (
+    field: keyof WrappedConfig,
+    value: string | number | string[]
+  ) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
+
+  // Convert projects to MultiSelect options
+  const projectOptions: MultiSelectOption[] = availableProjects.map((p) => ({
+    value: p.name,
+    label: p.name,
+    description: p.description,
+  }));
 
   return (
     <Card className="w-full max-w-2xl bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
@@ -194,27 +270,6 @@ export function ConfigForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="project" className="text-slate-200">
-                Project *
-              </Label>
-              <Input
-                id="project"
-                placeholder="e.g., vscode"
-                value={config.project}
-                onChange={(e) => handleChange("project", e.target.value)}
-                disabled={loading}
-                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
-                  errors.project ? "border-destructive" : ""
-                }`}
-              />
-              {errors.project && (
-                <p className="text-sm text-destructive">{errors.project}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
               <Label htmlFor="repository" className="text-slate-200">
                 Repository *
               </Label>
@@ -232,7 +287,44 @@ export function ConfigForm({
                 <p className="text-sm text-destructive">{errors.repository}</p>
               )}
             </div>
+          </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="projects" className="text-slate-200">
+              Projects *{" "}
+              {config.projects.length > 0 && (
+                <span className="text-slate-400 font-normal">
+                  ({config.projects.length} selected)
+                </span>
+              )}
+            </Label>
+            <MultiSelect
+              options={projectOptions}
+              selected={config.projects}
+              onChange={(selected) => handleChange("projects", selected)}
+              placeholder={
+                !config.organization || !config.pat
+                  ? "Enter organization and PAT first..."
+                  : "Select projects..."
+              }
+              disabled={loading || !config.organization || !config.pat}
+              loading={projectsLoading}
+              error={!!errors.projects}
+            />
+            {errors.projects && (
+              <p className="text-sm text-destructive">{errors.projects}</p>
+            )}
+            {projectsError && (
+              <p className="text-sm text-amber-500">
+                Could not load projects: {projectsError}
+              </p>
+            )}
+            <p className="text-xs text-slate-500">
+              Select one or more projects to include in your Wrapped.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="year" className="text-slate-200">
                 Year *
@@ -253,24 +345,24 @@ export function ConfigForm({
                 <p className="text-sm text-destructive">{errors.year}</p>
               )}
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="userEmail" className="text-slate-200">
-              User Email (Optional)
-            </Label>
-            <Input
-              id="userEmail"
-              type="email"
-              placeholder="filter@example.com"
-              value={config.userEmail}
-              onChange={(e) => handleChange("userEmail", e.target.value)}
-              disabled={loading}
-              className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500"
-            />
-            <p className="text-xs text-slate-500">
-              Filter commits and PRs by a specific user email.
-            </p>
+            <div className="space-y-2">
+              <Label htmlFor="userEmail" className="text-slate-200">
+                User Email (Optional)
+              </Label>
+              <Input
+                id="userEmail"
+                type="email"
+                placeholder="filter@example.com"
+                value={config.userEmail}
+                onChange={(e) => handleChange("userEmail", e.target.value)}
+                disabled={loading}
+                className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500"
+              />
+              <p className="text-xs text-slate-500">
+                Filter commits and PRs by a specific user email.
+              </p>
+            </div>
           </div>
         </CardContent>
         <CardFooter>

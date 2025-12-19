@@ -24,12 +24,17 @@ export function exportToMarkdown(stats: WrappedStats): void {
 function generateMarkdown(stats: WrappedStats): string {
   const { meta, commits, pullRequests, insights } = stats;
 
+  const projectsDisplay =
+    meta.projects.length === 1
+      ? meta.projects[0]
+      : `${meta.projects.length} projects (${meta.projects.join(", ")})`;
+
   return `# Azure DevOps Wrapped ${meta.year}
 
 ## 📊 Overview
 
 - **Organization:** ${meta.organization}
-- **Project:** ${meta.project}
+- **Projects:** ${projectsDisplay}
 - **Repository:** ${meta.repository}
 ${meta.userEmail ? `- **User:** ${meta.userEmail}` : ""}
 - **Generated:** ${new Date(meta.generatedAt).toLocaleDateString()}

@@ -16,7 +16,7 @@ export async function GET() {
       config: validation.valid
         ? {
             organization: config.organization,
-            project: config.project,
+            projects: config.projects,
             repository: config.repository,
             year: config.year,
             userEmail: config.userEmail,

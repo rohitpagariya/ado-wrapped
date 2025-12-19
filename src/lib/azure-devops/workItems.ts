@@ -75,22 +75,23 @@ function buildWiqlQuery(
   startDate: string,
   endDate: string
 ): string {
-  // Note: We use [System.AssignedTo] EVER to match items that were assigned
+  // Note: We use EVER [System.AssignedTo] = to match items that were assigned
   // to the user at any point, which captures items resolved while assigned to them.
-  // We filter on ChangedDate as a proxy since ResolvedDate may not be indexed.
+  // We filter on ChangedDate since ResolvedDate/ClosedDate may not exist in all process templates.
+  // States vary by process: Agile uses Resolved/Closed, Scrum uses Done, Basic uses Done.
+  // Note: WIQL with date precision doesn't allow time components, so we use date-only format.
   return `
     SELECT [System.Id], [System.WorkItemType], [System.Title], [System.State],
            [System.Reason], [System.CreatedDate], [System.ChangedDate],
-           [System.ResolvedDate], [System.ClosedDate], [System.Tags],
-           [System.AreaPath], [Microsoft.VSTS.Common.Priority],
+           [System.Tags], [System.AreaPath], [Microsoft.VSTS.Common.Priority],
            [Microsoft.VSTS.Common.Severity]
     FROM WorkItems
     WHERE [System.TeamProject] = '${project}'
-      AND [System.State] IN ('Resolved', 'Closed')
-      AND [System.Reason] NOT CONTAINS 'Rejected'
-      AND [System.AssignedTo] EVER '${userEmail}'
+      AND [System.State] IN ('Resolved', 'Closed', 'Done', 'Completed')
+      AND NOT [System.Reason] CONTAINS 'Rejected'
+      AND EVER [System.AssignedTo] = '${userEmail}'
       AND [System.ChangedDate] >= '${startDate}'
-      AND [System.ChangedDate] <= '${endDate}T23:59:59Z'
+      AND [System.ChangedDate] <= '${endDate}'
     ORDER BY [System.ChangedDate] DESC
   `.trim();
 }
@@ -108,6 +109,7 @@ async function fetchWorkItemDetails(
   const allWorkItems: WorkItem[] = [];
 
   // Fields we need for aggregation
+  // Note: ResolvedDate/ClosedDate don't exist in all process templates, so we use ChangedDate
   const fields = [
     "System.Id",
     "System.WorkItemType",
@@ -116,8 +118,6 @@ async function fetchWorkItemDetails(
     "System.Reason",
     "System.CreatedDate",
     "System.ChangedDate",
-    "System.ResolvedDate",
-    "System.ClosedDate",
     "System.Tags",
     "System.AreaPath",
     "Microsoft.VSTS.Common.Priority",

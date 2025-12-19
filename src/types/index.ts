@@ -2,7 +2,7 @@
 export interface WrappedConfig {
   pat: string; // Personal Access Token
   organization: string; // e.g., "microsoft"
-  project: string; // e.g., "Teams"
+  projects: string[]; // Array of project names, e.g., ["Teams", "Office"]
   repository: string; // e.g., "teams-frontend"
   year: number; // e.g., 2024
   userEmail?: string; // Optional: filter by specific user
@@ -21,7 +21,7 @@ export interface WrappedStats {
 // Metadata about the stats
 export interface MetaInfo {
   organization: string;
-  project: string;
+  projects: string[]; // Array of project names
   repository: string;
   year: number;
   generatedAt: string;
@@ -218,7 +218,7 @@ export namespace AzureDevOpsAPI {
       "System.Title": string;
       "System.State": string;
       "System.CreatedDate": string;
-      "System.ClosedDate"?: string;
+      "Microsoft.VSTS.Common.ClosedDate"?: string;
       "System.AssignedTo"?: {
         displayName: string;
         uniqueName: string;

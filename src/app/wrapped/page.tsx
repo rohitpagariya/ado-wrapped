@@ -118,10 +118,14 @@ export default function WrappedPage() {
         const config: WrappedConfig = JSON.parse(configStr);
 
         // Validate that we have required fields including PAT
+        // Support both new 'projects' array and legacy 'project' field
+        const projects =
+          config.projects ||
+          ((config as any).project ? [(config as any).project] : []);
         if (
           !config.pat ||
           !config.organization ||
-          !config.project ||
+          projects.length === 0 ||
           !config.repository
         ) {
           console.error("Missing required config fields");
@@ -132,9 +136,10 @@ export default function WrappedPage() {
         await updateStep("Preparing API request...", 20);
 
         // Build API URL with query parameters
+        // Use 'projects' param with comma-separated values
         const params = new URLSearchParams({
           organization: config.organization,
-          project: config.project,
+          projects: projects.join(","),
           repository: config.repository,
           year: config.year.toString(),
         });
@@ -150,7 +155,10 @@ export default function WrappedPage() {
 
         const url = `/api/stats?${params.toString()}`;
 
-        await updateStep("Fetching commits and pull requests...", 40);
+        await updateStep(
+          `Fetching data from ${projects.length} project(s)...`,
+          40
+        );
 
         console.log(`Fetching stats from ${url}`);
 
@@ -289,9 +297,17 @@ export default function WrappedPage() {
               Your {stats.meta.year} Wrapped
             </h1>
             <p className="text-slate-400 mt-2 text-sm sm:text-base">
-              {stats.meta.organization} / {stats.meta.project} /{" "}
-              {stats.meta.repository}
+              {stats.meta.organization} /{" "}
+              {stats.meta.projects.length === 1
+                ? stats.meta.projects[0]
+                : `${stats.meta.projects.length} projects`}{" "}
+              / {stats.meta.repository}
             </p>
+            {stats.meta.projects.length > 1 && (
+              <p className="text-slate-500 mt-1 text-xs">
+                {stats.meta.projects.join(", ")}
+              </p>
+            )}
           </div>
           <div className="flex gap-2 justify-center sm:justify-end flex-wrap">
             <Button
@@ -387,79 +403,6 @@ export default function WrappedPage() {
             </>
           )}
 
-          {/* Pull Requests Section */}
-          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-500/30 backdrop-blur-sm">
-            <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-white">
-              {stats.pullRequests.created}
-            </h3>
-            <p className="text-blue-300 text-sm sm:text-base">PRs Created</p>
-          </div>
-
-          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-600/20 border border-emerald-500/30 backdrop-blur-sm">
-            <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-emerald-400">
-              {stats.pullRequests.merged}
-            </h3>
-            <p className="text-emerald-300 text-sm sm:text-base">PRs Merged</p>
-          </div>
-
-          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-sky-600/20 border border-cyan-500/30 backdrop-blur-sm">
-            <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-cyan-400">
-              {stats.pullRequests.avgDaysToMergeFormatted || "N/A"}
-            </h3>
-            <p className="text-cyan-300 text-sm sm:text-base">
-              Avg Time to Merge
-            </p>
-          </div>
-
-          {/* PR Reviewer Stats */}
-          {stats.pullRequests.reviewed > 0 && (
-            <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/30 backdrop-blur-sm">
-              <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-amber-400">
-                {stats.pullRequests.reviewed}
-              </h3>
-              <p className="text-amber-300 text-sm sm:text-base">
-                PRs Reviewed
-              </p>
-            </div>
-          )}
-
-          {/* Fastest/Slowest Merge */}
-          {stats.pullRequests.fastestMerge && (
-            <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-amber-600/20 border border-yellow-500/30 backdrop-blur-sm">
-              <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-yellow-400">
-                ⚡{" "}
-                {stats.pullRequests.fastestMerge.hours < 24
-                  ? `${Math.round(stats.pullRequests.fastestMerge.hours)}h`
-                  : `${Math.round(
-                      stats.pullRequests.fastestMerge.hours / 24
-                    )}d`}
-              </h3>
-              <p className="text-yellow-300 text-sm">Fastest Merge</p>
-              <p
-                className="text-xs text-yellow-300/60 mt-1 truncate"
-                title={stats.pullRequests.fastestMerge.title}
-              >
-                {stats.pullRequests.fastestMerge.title}
-              </p>
-            </div>
-          )}
-
-          {stats.pullRequests.slowestMerge &&
-            stats.pullRequests.slowestMerge.days > 0 && (
-              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border border-orange-500/30 backdrop-blur-sm">
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-orange-400">
-                  🐢 {stats.pullRequests.slowestMerge.days}d
-                </h3>
-                <p className="text-orange-300 text-sm">Longest Review</p>
-                <p
-                  className="text-xs text-orange-300/60 mt-1 truncate"
-                  title={stats.pullRequests.slowestMerge.title}
-                >
-                  {stats.pullRequests.slowestMerge.title}
-                </p>
-              </div>
-            )}
-
           {/* Insights */}
           {stats.insights && (
             <>
@@ -504,6 +447,94 @@ export default function WrappedPage() {
           )}
         </div>
 
+        {/* ==================== PULL REQUESTS SECTION ==================== */}
+        <div className="mt-8 sm:mt-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+            <h2 className="text-xl sm:text-2xl font-bold text-blue-400 flex items-center gap-2">
+              <span>🔀</span> Pull Requests
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-blue-500/50 to-transparent" />
+          </div>
+
+          {/* PR Stats Grid */}
+          <div className="grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-3">
+            <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-500/30 backdrop-blur-sm">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-white">
+                {stats.pullRequests.created}
+              </h3>
+              <p className="text-blue-300 text-sm sm:text-base">PRs Created</p>
+            </div>
+
+            <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-teal-600/20 border border-emerald-500/30 backdrop-blur-sm">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-emerald-400">
+                {stats.pullRequests.merged}
+              </h3>
+              <p className="text-emerald-300 text-sm sm:text-base">
+                PRs Merged
+              </p>
+            </div>
+
+            <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-cyan-500/20 to-sky-600/20 border border-cyan-500/30 backdrop-blur-sm">
+              <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-cyan-400">
+                {stats.pullRequests.avgDaysToMergeFormatted || "N/A"}
+              </h3>
+              <p className="text-cyan-300 text-sm sm:text-base">
+                Avg Time to Merge
+              </p>
+            </div>
+
+            {/* PR Reviewer Stats */}
+            {stats.pullRequests.reviewed > 0 && (
+              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 border border-amber-500/30 backdrop-blur-sm">
+                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-amber-400">
+                  {stats.pullRequests.reviewed}
+                </h3>
+                <p className="text-amber-300 text-sm sm:text-base">
+                  PRs Reviewed
+                </p>
+              </div>
+            )}
+
+            {/* Fastest/Slowest Merge */}
+            {stats.pullRequests.fastestMerge && (
+              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-yellow-500/20 to-amber-600/20 border border-yellow-500/30 backdrop-blur-sm">
+                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-yellow-400">
+                  ⚡{" "}
+                  {stats.pullRequests.fastestMerge.hours < 24
+                    ? `${Math.round(stats.pullRequests.fastestMerge.hours)}h`
+                    : `${Math.round(
+                        stats.pullRequests.fastestMerge.hours / 24
+                      )}d`}
+                </h3>
+                <p className="text-yellow-300 text-sm">Fastest Merge</p>
+                <p
+                  className="text-xs text-yellow-300/60 mt-1 truncate"
+                  title={stats.pullRequests.fastestMerge.title}
+                >
+                  {stats.pullRequests.fastestMerge.title}
+                </p>
+              </div>
+            )}
+
+            {stats.pullRequests.slowestMerge &&
+              stats.pullRequests.slowestMerge.days > 0 && (
+                <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border border-orange-500/30 backdrop-blur-sm">
+                  <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-orange-400">
+                    🐢 {stats.pullRequests.slowestMerge.days}d
+                  </h3>
+                  <p className="text-orange-300 text-sm">Longest Review</p>
+                  <p
+                    className="text-xs text-orange-300/60 mt-1 truncate"
+                    title={stats.pullRequests.slowestMerge.title}
+                  >
+                    {stats.pullRequests.slowestMerge.title}
+                  </p>
+                </div>
+              )}
+          </div>
+        </div>
+
         {/* PR Activity Timeline */}
         {stats.pullRequests.firstPRDate && (
           <div className="mt-6 sm:mt-8 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
@@ -545,21 +576,21 @@ export default function WrappedPage() {
                 ];
                 const values = months.map((m) => byMonth[m] || 0);
                 const maxCount = Math.max(...values, 1);
-                // Fixed height per PR unit - 40px per PR, makes differences very visible
-                const heightPerPR = 40;
-                const maxHeight = maxCount * heightPerPR;
+                // Use percentage-based heights with a fixed max container height
+                const maxBarHeight = 120;
 
                 return (
                   <div
                     className="flex items-end gap-2"
                     style={{
-                      height: `${Math.max(maxHeight + 24, 80)}px`,
+                      height: `${maxBarHeight + 40}px`,
                       paddingTop: "24px",
                     }}
                   >
                     {months.map((month) => {
                       const count = byMonth[month] || 0;
-                      const barHeight = count * heightPerPR;
+                      const barHeight =
+                        maxCount > 0 ? (count / maxCount) * maxBarHeight : 0;
                       return (
                         <div
                           key={month}
@@ -620,15 +651,14 @@ export default function WrappedPage() {
                   (d) => stats.pullRequests.byDayOfWeek?.[d] || 0
                 );
                 const maxCount = Math.max(...values, 1);
-                // Fixed height per PR unit - 30px per PR
-                const heightPerPR = 30;
-                const maxHeight = maxCount * heightPerPR;
+                // Use percentage-based heights with a fixed max container height
+                const maxBarHeight = 100;
 
                 return (
                   <div
                     className="flex items-end gap-2"
                     style={{
-                      height: `${Math.max(maxHeight + 24, 60)}px`,
+                      height: `${maxBarHeight + 40}px`,
                       paddingTop: "24px",
                     }}
                   >
@@ -636,7 +666,8 @@ export default function WrappedPage() {
                       const fullDay = dayNames[idx];
                       const count =
                         stats.pullRequests.byDayOfWeek?.[fullDay] || 0;
-                      const barHeight = count * heightPerPR;
+                      const barHeight =
+                        maxCount > 0 ? (count / maxCount) * maxBarHeight : 0;
                       return (
                         <div
                           key={day}
@@ -671,17 +702,6 @@ export default function WrappedPage() {
           </div>
         )}
 
-        {/* Streak Info - only show if we have commit data */}
-        {stats.commits.total > 0 && stats.commits.longestStreak > 0 && (
-          <div className="mt-6 sm:mt-8 p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border border-orange-500/30 backdrop-blur-sm text-center">
-            <p className="text-5xl sm:text-6xl font-bold mb-2">🔥</p>
-            <h3 className="text-3xl sm:text-4xl font-bold text-orange-400">
-              {stats.commits.longestStreak} Days
-            </h3>
-            <p className="text-orange-300 mt-2">Longest Commit Streak</p>
-          </div>
-        )}
-
         {/* Largest PR */}
         {stats.pullRequests.largestPR && (
           <div className="mt-6 sm:mt-8 p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-amber-500/20 to-yellow-600/20 border border-amber-500/30 backdrop-blur-sm text-center">
@@ -695,6 +715,331 @@ export default function WrappedPage() {
             >
               {stats.pullRequests.largestPR.title}
             </p>
+            <p className="text-xs text-amber-300/60 mt-1">
+              {stats.pullRequests.largestPR.filesChanged} files changed
+            </p>
+          </div>
+        )}
+
+        {/* ==================== WORK ITEMS SECTION ==================== */}
+        {stats.workItems && stats.workItems.total > 0 && (
+          <div className="mt-8 sm:mt-10">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+              <h2 className="text-xl sm:text-2xl font-bold text-violet-400 flex items-center gap-2">
+                <span>📋</span> Work Items
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+            </div>
+
+            {/* Work Items Summary Cards */}
+            <div className="grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4 mb-6">
+              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-600/20 border border-violet-500/30 backdrop-blur-sm">
+                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-white">
+                  {stats.workItems.total}
+                </h3>
+                <p className="text-violet-300 text-sm sm:text-base">
+                  Work Items Resolved
+                </p>
+              </div>
+
+              {stats.workItems.bugsFixed > 0 && (
+                <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-red-500/20 to-pink-600/20 border border-red-500/30 backdrop-blur-sm">
+                  <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-red-400">
+                    🐛 {stats.workItems.bugsFixed}
+                  </h3>
+                  <p className="text-red-300 text-sm sm:text-base">
+                    Bugs Squashed
+                  </p>
+                </div>
+              )}
+
+              {stats.workItems.avgResolutionDays > 0 && (
+                <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-blue-600/20 border border-indigo-500/30 backdrop-blur-sm">
+                  <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-indigo-400">
+                    ⚡ {stats.workItems.avgResolutionDays.toFixed(1)}d
+                  </h3>
+                  <p className="text-indigo-300 text-sm sm:text-base">
+                    Avg Resolution Time
+                  </p>
+                </div>
+              )}
+
+              {stats.workItems.fastestResolution && (
+                <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-green-500/20 to-emerald-600/20 border border-green-500/30 backdrop-blur-sm">
+                  <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-green-400">
+                    🚀{" "}
+                    {stats.workItems.fastestResolution.hours < 24
+                      ? `${Math.round(
+                          stats.workItems.fastestResolution.hours
+                        )}h`
+                      : `${Math.round(
+                          stats.workItems.fastestResolution.hours / 24
+                        )}d`}
+                  </h3>
+                  <p className="text-green-300 text-sm">Fastest Resolution</p>
+                  <p
+                    className="text-xs text-green-300/60 mt-1 truncate"
+                    title={stats.workItems.fastestResolution.title}
+                  >
+                    {stats.workItems.fastestResolution.title}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Work Item Types Bar Chart */}
+            {Object.keys(stats.workItems.byType || {}).length > 0 && (
+              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
+                <h3 className="text-lg font-semibold mb-4 text-white">
+                  Work Items by Type
+                </h3>
+                {(() => {
+                  const typeEntries = Object.entries(
+                    stats.workItems.byType
+                  ).sort((a, b) => b[1] - a[1]);
+                  const maxCount = Math.max(
+                    ...typeEntries.map(([, c]) => c),
+                    1
+                  );
+                  const maxBarHeight = 120;
+
+                  return (
+                    <div
+                      className="flex items-end gap-3"
+                      style={{
+                        height: `${maxBarHeight + 60}px`,
+                        paddingTop: "24px",
+                      }}
+                    >
+                      {typeEntries.map(([type, count]) => {
+                        const barHeight =
+                          maxCount > 0 ? (count / maxCount) * maxBarHeight : 0;
+                        return (
+                          <div
+                            key={type}
+                            className="flex-1 flex flex-col items-center relative min-w-0"
+                          >
+                            {count > 0 && (
+                              <div
+                                className="absolute left-1/2 -translate-x-1/2 text-slate-300 text-xs font-medium"
+                                style={{ bottom: `${barHeight + 40}px` }}
+                              >
+                                {count}
+                              </div>
+                            )}
+                            <div
+                              className="w-full bg-gradient-to-t from-violet-600 to-purple-400 rounded-t transition-all hover:from-violet-500 hover:to-purple-300"
+                              style={{
+                                height: `${barHeight}px`,
+                                minHeight: count > 0 ? "4px" : "0",
+                              }}
+                              title={`${type}: ${count}`}
+                            />
+                            <span
+                              className="text-xs text-slate-400 mt-2 text-center leading-tight truncate w-full px-1"
+                              title={type}
+                            >
+                              {type.length > 10
+                                ? type.substring(0, 8) + "..."
+                                : type}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Bug Severity Bar Chart */}
+            {Object.keys(stats.workItems.bugsBySeverity || {}).length > 0 && (
+              <div className="mt-4 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
+                <h3 className="text-lg font-semibold mb-4 text-white">
+                  Bugs by Severity
+                </h3>
+                {(() => {
+                  const severityOrder = [
+                    "1 - Critical",
+                    "2 - High",
+                    "3 - Medium",
+                    "4 - Low",
+                  ];
+                  const severityColors: Record<string, string> = {
+                    "1 - Critical": "from-red-600 to-red-400",
+                    "2 - High": "from-orange-600 to-orange-400",
+                    "3 - Medium": "from-yellow-600 to-yellow-400",
+                    "4 - Low": "from-blue-600 to-blue-400",
+                  };
+                  const severityEntries = Object.entries(
+                    stats.workItems.bugsBySeverity
+                  ).sort(
+                    (a, b) =>
+                      severityOrder.indexOf(a[0]) - severityOrder.indexOf(b[0])
+                  );
+                  const maxCount = Math.max(
+                    ...severityEntries.map(([, c]) => c),
+                    1
+                  );
+                  const maxBarHeight = 100;
+
+                  return (
+                    <div
+                      className="flex items-end gap-4"
+                      style={{
+                        height: `${maxBarHeight + 60}px`,
+                        paddingTop: "24px",
+                      }}
+                    >
+                      {severityEntries.map(([severity, count]) => {
+                        const barHeight =
+                          maxCount > 0 ? (count / maxCount) * maxBarHeight : 0;
+                        const colorClass =
+                          severityColors[severity] ||
+                          "from-gray-600 to-gray-400";
+                        const shortLabel = severity.includes(" - ")
+                          ? severity.split(" - ")[1]
+                          : severity;
+                        return (
+                          <div
+                            key={severity}
+                            className="flex-1 flex flex-col items-center relative"
+                          >
+                            {count > 0 && (
+                              <div
+                                className="absolute left-1/2 -translate-x-1/2 text-slate-300 text-xs font-medium"
+                                style={{ bottom: `${barHeight + 40}px` }}
+                              >
+                                {count}
+                              </div>
+                            )}
+                            <div
+                              className={`w-full bg-gradient-to-t ${colorClass} rounded-t transition-all hover:opacity-80`}
+                              style={{
+                                height: `${barHeight}px`,
+                                minHeight: count > 0 ? "4px" : "0",
+                              }}
+                              title={`${severity}: ${count}`}
+                            />
+                            <span className="text-xs text-slate-400 mt-2 text-center">
+                              {shortLabel}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {/* Top Tags - Separate Card */}
+            {stats.workItems.topTags && stats.workItems.topTags.length > 0 && (
+              <div className="mt-4 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
+                <h3 className="text-lg font-semibold mb-4 text-white">
+                  🏷️ Top Tags
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {stats.workItems.topTags
+                    .slice(0, 12)
+                    .map(({ tag, count }) => (
+                      <span
+                        key={tag}
+                        className="px-3 py-1.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-sm hover:bg-indigo-500/30 transition-colors"
+                      >
+                        {tag}{" "}
+                        <span className="text-indigo-400/70">({count})</span>
+                      </span>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Work Items by Month Chart */}
+            {Object.keys(stats.workItems.byMonth || {}).length > 0 && (
+              <div className="mt-4 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
+                <h3 className="text-lg font-semibold mb-4 text-white">
+                  📅 Work Items by Month
+                </h3>
+                {(() => {
+                  const byMonth = stats.workItems.byMonth || {};
+                  const months = [
+                    "Jan",
+                    "Feb",
+                    "Mar",
+                    "Apr",
+                    "May",
+                    "Jun",
+                    "Jul",
+                    "Aug",
+                    "Sep",
+                    "Oct",
+                    "Nov",
+                    "Dec",
+                  ];
+                  const values = months.map((m) => byMonth[m] || 0);
+                  const maxCount = Math.max(...values, 1);
+                  const maxBarHeight = 120;
+
+                  return (
+                    <div
+                      className="flex items-end gap-2"
+                      style={{
+                        height: `${maxBarHeight + 40}px`,
+                        paddingTop: "24px",
+                      }}
+                    >
+                      {months.map((month) => {
+                        const count = byMonth[month] || 0;
+                        const barHeight =
+                          maxCount > 0 ? (count / maxCount) * maxBarHeight : 0;
+                        return (
+                          <div
+                            key={month}
+                            className="flex-1 flex flex-col items-center relative"
+                          >
+                            {count > 0 && (
+                              <div
+                                className="absolute left-1/2 -translate-x-1/2 text-slate-300 text-xs font-medium"
+                                style={{ bottom: `${barHeight + 20}px` }}
+                              >
+                                {count}
+                              </div>
+                            )}
+                            <div
+                              className="w-full bg-gradient-to-t from-violet-600 to-purple-400 rounded-t transition-all hover:from-violet-500 hover:to-purple-300"
+                              style={{
+                                height: `${barHeight}px`,
+                                minHeight: count > 0 ? "4px" : "0",
+                              }}
+                              title={`${month}: ${count} work items`}
+                            />
+                            <span className="text-xs text-slate-500 mt-1 hidden sm:block">
+                              {month}
+                            </span>
+                            <span className="text-xs text-slate-500 mt-1 sm:hidden">
+                              {month.charAt(0)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Streak Info - only show if we have commit data */}
+        {stats.commits.total > 0 && stats.commits.longestStreak > 0 && (
+          <div className="mt-6 sm:mt-8 p-6 sm:p-8 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border border-orange-500/30 backdrop-blur-sm text-center">
+            <p className="text-5xl sm:text-6xl font-bold mb-2">🔥</p>
+            <h3 className="text-3xl sm:text-4xl font-bold text-orange-400">
+              {stats.commits.longestStreak} Days
+            </h3>
+            <p className="text-orange-300 mt-2">Longest Commit Streak</p>
           </div>
         )}
       </div>

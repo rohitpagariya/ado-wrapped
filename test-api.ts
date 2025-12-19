@@ -37,12 +37,15 @@ async function testAPIIntegration() {
   // Convert to WrappedConfig format
   const config: WrappedConfig = {
     organization: appConfig.organization,
-    project: appConfig.project,
+    projects: appConfig.projects,
     repository: appConfig.repository,
     pat: appConfig.pat,
     year: appConfig.year,
     userEmail: appConfig.userEmail,
   };
+
+  // Use first project for single-project API calls
+  const project = config.projects[0];
 
   try {
     // Define date range
@@ -55,7 +58,7 @@ async function testAPIIntegration() {
     console.log("1️⃣  Fetching commits from master branch...");
     const commits = await fetchCommits({
       organization: config.organization,
-      project: config.project,
+      project: project,
       repository: config.repository,
       pat: config.pat,
       fromDate,
@@ -68,7 +71,7 @@ async function testAPIIntegration() {
     console.log("2️⃣  Fetching pull requests merged to master...");
     const pullRequests = await fetchPullRequests({
       organization: config.organization,
-      project: config.project,
+      project: project,
       repository: config.repository,
       pat: config.pat,
       fromDate,
@@ -84,7 +87,7 @@ async function testAPIIntegration() {
       pat: config.pat,
     });
     const workItems = await fetchWorkItems(client, {
-      project: config.project,
+      project: project,
       year: config.year,
       userEmail: config.userEmail,
     });
@@ -97,7 +100,7 @@ async function testAPIIntegration() {
       workItems,
       config: {
         organization: config.organization,
-        project: config.project,
+        projects: config.projects,
         repository: config.repository,
         year: config.year,
         userEmail: config.userEmail,

@@ -26,6 +26,8 @@ export type { FetchPullRequestsOptions } from "./pullRequests";
 export { fetchWorkItems } from "./workItems";
 export type { FetchWorkItemsOptions } from "./workItems";
 
+export { fetchProjects } from "./projects";
+
 export { aggregateStats } from "./aggregator";
 export type { AggregatorInput } from "./aggregator";
 

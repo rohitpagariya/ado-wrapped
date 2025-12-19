@@ -241,8 +241,8 @@ export interface WorkItemFields {
   "System.AssignedTo"?: IdentityRef;
   "System.CreatedDate": string;
   "System.ChangedDate": string;
-  "System.ResolvedDate"?: string;
-  "System.ClosedDate"?: string;
+  "Microsoft.VSTS.Common.ResolvedDate"?: string;
+  "Microsoft.VSTS.Common.ClosedDate"?: string;
   "System.Tags"?: string;
   "System.AreaPath"?: string;
   "System.IterationPath"?: string;
@@ -272,3 +272,20 @@ export interface WorkItemReference {
 }
 
 export type WorkItemResponse = ApiCollectionResponse<WorkItem>;
+
+// ============================================
+// Projects
+// ============================================
+
+export interface TeamProject {
+  id: string;
+  name: string;
+  description?: string;
+  url: string;
+  state: "wellFormed" | "createPending" | "deleting" | "new" | "all";
+  revision?: number;
+  visibility?: "private" | "public";
+  lastUpdateTime?: string;
+}
+
+export type TeamProjectResponse = ApiCollectionResponse<TeamProject>;

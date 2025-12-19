@@ -212,13 +212,22 @@ function renderCard(card: { type: string; data: WrappedStats }) {
       return (
         <StatsCard
           title={`Your ${card.data.meta.year} Wrapped`}
-          subtitle={`${card.data.meta.organization} / ${card.data.meta.project}`}
+          subtitle={`${card.data.meta.organization} / ${
+            card.data.meta.projects.length === 1
+              ? card.data.meta.projects[0]
+              : `${card.data.meta.projects.length} projects`
+          }`}
           variant="gradient"
         >
           <div className="text-center space-y-4">
             <p className="text-lg text-gray-700 dark:text-gray-300">
               Let&apos;s take a look at your year in code! 🚀
             </p>
+            {card.data.meta.projects.length > 1 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {card.data.meta.projects.join(", ")}
+              </p>
+            )}
             <p className="text-sm text-gray-500 dark:text-gray-400">
               Swipe, click arrows, or use keyboard to navigate →
             </p>

@@ -39,7 +39,7 @@ export interface AggregatorInput {
   workItems: WorkItem[];
   config: {
     organization: string;
-    project: string;
+    projects: string[]; // Changed from project to projects array
     repository: string;
     year: number;
     userEmail?: string;
@@ -53,6 +53,7 @@ export function aggregateStats(input: AggregatorInput): WrappedStats {
   const { commits, pullRequests, workItems, config } = input;
 
   console.log(`\n📊 Aggregating stats for ${config.year}...`);
+  console.log(`   Projects: ${config.projects.join(", ")}`);
   console.log(`   Commits: ${commits.length}`);
   console.log(`   Pull Requests: ${pullRequests.length}`);
   console.log(`   Work Items: ${workItems.length}`);
@@ -60,7 +61,7 @@ export function aggregateStats(input: AggregatorInput): WrappedStats {
   return {
     meta: {
       organization: config.organization,
-      project: config.project,
+      projects: config.projects,
       repository: config.repository,
       year: config.year,
       generatedAt: new Date().toISOString(),
@@ -546,8 +547,13 @@ function aggregateWorkItemStats(workItems: WorkItem[]): WorkItemStats {
   for (const item of workItems) {
     const fields = item.fields;
     const workItemType = fields["System.WorkItemType"];
+    // Use ResolvedDate or ClosedDate if available, fall back to ChangedDate
+    // Note: These fields use Microsoft.VSTS.Common namespace, not System
+    // They may not exist in all Azure DevOps process templates (e.g., Basic process)
     const resolvedDate =
-      fields["System.ResolvedDate"] || fields["System.ClosedDate"];
+      fields["Microsoft.VSTS.Common.ResolvedDate"] ||
+      fields["Microsoft.VSTS.Common.ClosedDate"] ||
+      fields["System.ChangedDate"];
     const createdDate = fields["System.CreatedDate"];
 
     // Count by type

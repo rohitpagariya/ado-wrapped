@@ -11,7 +11,7 @@ loadEnv();
 export interface AppConfig {
   // Azure DevOps Connection
   organization: string;
-  project: string;
+  projects: string[]; // Array of project names (supports multiple projects)
   repository: string;
   pat: string;
 
@@ -31,13 +31,35 @@ export interface AppConfig {
 }
 
 /**
+ * Parse projects from environment variable
+ * Supports both ADO_PROJECTS (comma-separated) and legacy ADO_PROJECT (single)
+ */
+function parseProjects(): string[] {
+  const projectsEnv = process.env.ADO_PROJECTS;
+  const legacyProjectEnv = process.env.ADO_PROJECT;
+
+  if (projectsEnv) {
+    // New format: comma-separated list
+    return projectsEnv
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+  } else if (legacyProjectEnv) {
+    // Legacy format: single project
+    return [legacyProjectEnv.trim()];
+  }
+
+  return [];
+}
+
+/**
  * Load configuration from environment variables
  */
 export function loadConfig(): AppConfig {
   return {
     // Required settings
     organization: process.env.ADO_ORGANIZATION || "",
-    project: process.env.ADO_PROJECT || "",
+    projects: parseProjects(),
     repository: process.env.ADO_REPOSITORY || "",
     pat: process.env.ADO_PAT || "",
 
@@ -70,8 +92,8 @@ export function validateConfig(config: AppConfig): {
     errors.push("ADO_ORGANIZATION is required");
   }
 
-  if (!config.project) {
-    errors.push("ADO_PROJECT is required");
+  if (!config.projects || config.projects.length === 0) {
+    errors.push("ADO_PROJECTS (or ADO_PROJECT) is required");
   }
 
   if (!config.repository) {
@@ -123,7 +145,7 @@ export function loadAndValidateConfig(): AppConfig {
 export function printConfig(config: AppConfig): void {
   console.log("📋 Configuration:");
   console.log(`   Organization: ${config.organization}`);
-  console.log(`   Project: ${config.project}`);
+  console.log(`   Projects: ${config.projects.join(", ")}`);
   console.log(`   Repository: ${config.repository}`);
   console.log(
     `   PAT: ${config.pat ? "***" + config.pat.slice(-4) : "(not set)"}`
