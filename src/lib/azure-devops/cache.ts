@@ -6,6 +6,20 @@ import { DEFAULT_CACHE_TTL_HOURS } from "../constants";
 const CACHE_DIR = path.join(process.cwd(), ".ado-cache");
 
 /**
+ * Check if disk caching is enabled via environment variable.
+ *
+ * Caching is DISABLED by default to avoid:
+ * - Memory pressure from in-memory caches (risk of OOM crashes)
+ * - Disk storage accumulation in production (Vercel/serverless)
+ *
+ * Set ADO_CACHE_ENABLED=true to enable file-based caching (recommended for local development only)
+ */
+export function isCacheEnabled(): boolean {
+  const envValue = process.env.ADO_CACHE_ENABLED?.toLowerCase();
+  return envValue === "true" || envValue === "1";
+}
+
+/**
  * Cache entry structure with optional expiration
  */
 interface CacheEntry<T> {
@@ -68,7 +82,7 @@ function ensureCacheDir(): void {
 }
 
 /**
- * Read from cache with optional TTL check
+ * Read from disk cache with optional TTL check
  * @param url - The URL that was cached
  * @param params - The request parameters
  * @param ttlHours - Time-to-live in hours (default: 24). Set to 0 to ignore expiration.
@@ -78,6 +92,11 @@ export function readCache<T>(
   params?: Record<string, any>,
   ttlHours: number = DEFAULT_CACHE_TTL_HOURS
 ): T | null {
+  // Caching disabled by default
+  if (!isCacheEnabled()) {
+    return null;
+  }
+
   try {
     const cacheKey = generateCacheKey(url, params);
     const filePath = getCacheFilePath(cacheKey);
@@ -93,7 +112,6 @@ export function readCache<T>(
     // Check expiration if TTL is set
     if (ttlHours > 0 && isExpired(cached.expiresAt)) {
       console.log(`⏰ Cache EXPIRED for ${url} (expired: ${cached.expiresAt})`);
-      // Optionally delete expired cache file
       try {
         fs.unlinkSync(filePath);
       } catch {
@@ -111,7 +129,7 @@ export function readCache<T>(
 }
 
 /**
- * Write to cache with optional TTL
+ * Write to disk cache with optional TTL
  * @param url - The URL being cached
  * @param params - The request parameters
  * @param data - The data to cache
@@ -123,6 +141,11 @@ export function writeCache<T>(
   data: T,
   ttlHours: number = DEFAULT_CACHE_TTL_HOURS
 ): void {
+  // Caching disabled by default
+  if (!isCacheEnabled()) {
+    return;
+  }
+
   try {
     ensureCacheDir();
 
@@ -153,7 +176,7 @@ export function writeCache<T>(
 }
 
 /**
- * Clear all cache
+ * Clear all disk cache files
  */
 export function clearCache(): void {
   try {
@@ -163,6 +186,8 @@ export function clearCache(): void {
         fs.unlinkSync(path.join(CACHE_DIR, file));
       }
       console.log(`✓ Cleared ${files.length} cache entries`);
+    } else {
+      console.log(`✓ Cache directory does not exist, nothing to clear`);
     }
   } catch (error) {
     console.warn("Failed to clear cache:", error);
@@ -173,13 +198,16 @@ export function clearCache(): void {
  * Get cache statistics
  */
 export function getCacheStats(): {
+  enabled: boolean;
   entries: number;
   totalSize: number;
   directory: string;
 } {
+  const enabled = isCacheEnabled();
+
   try {
     if (!fs.existsSync(CACHE_DIR)) {
-      return { entries: 0, totalSize: 0, directory: CACHE_DIR };
+      return { enabled, entries: 0, totalSize: 0, directory: CACHE_DIR };
     }
 
     const files = fs.readdirSync(CACHE_DIR);
@@ -191,12 +219,13 @@ export function getCacheStats(): {
     }
 
     return {
+      enabled,
       entries: files.length,
       totalSize,
       directory: CACHE_DIR,
     };
   } catch (error) {
     console.warn("Failed to get cache stats:", error);
-    return { entries: 0, totalSize: 0, directory: CACHE_DIR };
+    return { enabled, entries: 0, totalSize: 0, directory: CACHE_DIR };
   }
 }

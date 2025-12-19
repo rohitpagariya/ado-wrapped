@@ -26,7 +26,13 @@ export type { FetchPullRequestsOptions } from "./pullRequests";
 export { aggregateStats } from "./aggregator";
 export type { AggregatorInput } from "./aggregator";
 
-export { readCache, writeCache, clearCache, getCacheStats } from "./cache";
+export {
+  readCache,
+  writeCache,
+  clearCache,
+  getCacheStats,
+  isCacheEnabled,
+} from "./cache";
 
 export * from "./types";
 

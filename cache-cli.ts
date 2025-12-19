@@ -8,7 +8,11 @@
  *   npm run cache:clear  - Clear all cached responses
  */
 
-import { clearCache, getCacheStats } from "./src/lib/azure-devops/cache";
+import {
+  clearCache,
+  getCacheStats,
+  isCacheEnabled,
+} from "./src/lib/azure-devops/cache";
 
 const command = process.argv[2];
 
@@ -18,6 +22,7 @@ switch (command) {
       const stats = getCacheStats();
       console.log("\n📊 ADO Cache Statistics");
       console.log("=".repeat(50));
+      console.log(`Caching Enabled: ${stats.enabled ? "Yes" : "No"}`);
       console.log(`Directory: ${stats.directory}`);
       console.log(`Entries: ${stats.entries}`);
       console.log(
@@ -29,6 +34,13 @@ switch (command) {
       );
       console.log("=".repeat(50));
       console.log();
+      if (!stats.enabled) {
+        console.log(
+          "💡 Tip: Set ADO_CACHE_ENABLED=true to enable disk caching"
+        );
+        console.log("   (recommended for local development only)");
+        console.log();
+      }
     }
     break;
 
@@ -44,7 +56,12 @@ switch (command) {
     console.log("\n📦 ADO Cache Manager");
     console.log("\nUsage:");
     console.log("  npm run cache:stats  - Show cache statistics");
-    console.log("  npm run cache:clear  - Clear all cached responses");
+    console.log("  npm run cache:clear  - Clear disk cache files");
+    console.log("\nEnvironment Variables:");
+    console.log(
+      "  ADO_CACHE_ENABLED=true  - Enable file-based caching (for development)"
+    );
+    console.log("  ADO_CACHE_ENABLED=false - Disable caching (default)");
     console.log();
     process.exit(1);
 }

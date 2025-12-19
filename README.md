@@ -96,18 +96,35 @@ npm run build        # Production build
 npm run type-check   # TypeScript validation
 npm run test:api     # Test Azure DevOps integration
 npm run cache:stats  # Show cache statistics
-npm run cache:clear  # Clear API response cache
+npm run cache:clear  # Clear disk cache files
 ```
 
 ### API Response Caching
 
-To speed up development and reduce API load, all Azure DevOps API responses are automatically cached to `.ado-cache/` directory as JSON files. The cache is:
+Azure DevOps API responses can be cached to disk to speed up development. **Caching is disabled by default** to avoid storage accumulation in production environments.
 
-- **Enabled by default** for all API requests
-- **Keyed** by URL and request parameters (deterministic)
-- **Transparent** — same response whether cached or fresh
-- **Persistent** across development sessions
-- **Git-ignored** (not committed to repo)
+| Setting                            | Behavior                                               |
+| ---------------------------------- | ------------------------------------------------------ |
+| `ADO_CACHE_ENABLED=true`           | File-based cache in `.ado-cache/` (for development)    |
+| `ADO_CACHE_ENABLED=false` or unset | No caching — fresh data fetched each request (default) |
+
+**Why disabled by default?**
+
+- **Production safety**: No disk storage accumulation on Vercel/serverless
+- **Memory safety**: No risk of OOM crashes from in-memory caches
+- **Simplicity**: Each request is independent, data discarded after response
+
+**For local development**, enable caching in your `.env`:
+
+```bash
+ADO_CACHE_ENABLED=true
+```
+
+The disk cache:
+
+- Is **git-ignored** (not committed to repo)
+- Is **cleared on build** (`prebuild` script runs `cache:clear`)
+- Is **keyed** by URL and request parameters (deterministic)
 
 **Cache management:**
 
@@ -115,7 +132,7 @@ To speed up development and reduce API load, all Azure DevOps API responses are 
 # View cache statistics
 npm run cache:stats
 
-# Clear all cached responses (useful when debugging data issues)
+# Clear disk cache files
 npm run cache:clear
 ```
 
