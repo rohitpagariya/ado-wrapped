@@ -110,10 +110,10 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
   };
 
   return (
-    <Card className="w-full max-w-2xl">
+    <Card className="w-full max-w-2xl bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle>Configure Your Wrapped</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-white">Configure Your Wrapped</CardTitle>
+        <CardDescription className="text-slate-400">
           Enter your Azure DevOps credentials and repository details to generate
           your year in review.
         </CardDescription>
@@ -121,7 +121,9 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="pat">Personal Access Token (PAT) *</Label>
+            <Label htmlFor="pat" className="text-slate-200">
+              Personal Access Token (PAT) *
+            </Label>
             <Input
               id="pat"
               type="password"
@@ -129,26 +131,37 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
               value={config.pat}
               onChange={(e) => handleChange("pat", e.target.value)}
               disabled={loading}
-              className={errors.pat ? "border-destructive" : ""}
+              className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
+                errors.pat ? "border-destructive" : ""
+              }`}
             />
             {errors.pat && (
               <p className="text-sm text-destructive">{errors.pat}</p>
             )}
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-slate-500">
               Your PAT is used only to fetch data and is not stored permanently.
+            </p>
+            <p className="text-xs text-slate-500">
+              Requires <span className="text-cyan-400">Read</span> permissions
+              for <span className="text-cyan-400">Code</span> and{" "}
+              <span className="text-cyan-400">Identity</span> scopes.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="organization">Organization *</Label>
+              <Label htmlFor="organization" className="text-slate-200">
+                Organization *
+              </Label>
               <Input
                 id="organization"
                 placeholder="e.g., microsoft"
                 value={config.organization}
                 onChange={(e) => handleChange("organization", e.target.value)}
                 disabled={loading}
-                className={errors.organization ? "border-destructive" : ""}
+                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
+                  errors.organization ? "border-destructive" : ""
+                }`}
               />
               {errors.organization && (
                 <p className="text-sm text-destructive">
@@ -158,14 +171,18 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="project">Project *</Label>
+              <Label htmlFor="project" className="text-slate-200">
+                Project *
+              </Label>
               <Input
                 id="project"
                 placeholder="e.g., vscode"
                 value={config.project}
                 onChange={(e) => handleChange("project", e.target.value)}
                 disabled={loading}
-                className={errors.project ? "border-destructive" : ""}
+                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
+                  errors.project ? "border-destructive" : ""
+                }`}
               />
               {errors.project && (
                 <p className="text-sm text-destructive">{errors.project}</p>
@@ -175,14 +192,18 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="repository">Repository *</Label>
+              <Label htmlFor="repository" className="text-slate-200">
+                Repository *
+              </Label>
               <Input
                 id="repository"
                 placeholder="e.g., vscode"
                 value={config.repository}
                 onChange={(e) => handleChange("repository", e.target.value)}
                 disabled={loading}
-                className={errors.repository ? "border-destructive" : ""}
+                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
+                  errors.repository ? "border-destructive" : ""
+                }`}
               />
               {errors.repository && (
                 <p className="text-sm text-destructive">{errors.repository}</p>
@@ -190,7 +211,9 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="year">Year *</Label>
+              <Label htmlFor="year" className="text-slate-200">
+                Year *
+              </Label>
               <Input
                 id="year"
                 type="number"
@@ -199,7 +222,9 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
                 value={config.year}
                 onChange={(e) => handleChange("year", parseInt(e.target.value))}
                 disabled={loading}
-                className={errors.year ? "border-destructive" : ""}
+                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
+                  errors.year ? "border-destructive" : ""
+                }`}
               />
               {errors.year && (
                 <p className="text-sm text-destructive">{errors.year}</p>
@@ -208,7 +233,9 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="userEmail">User Email (Optional)</Label>
+            <Label htmlFor="userEmail" className="text-slate-200">
+              User Email (Optional)
+            </Label>
             <Input
               id="userEmail"
               type="email"
@@ -216,14 +243,19 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
               value={config.userEmail}
               onChange={(e) => handleChange("userEmail", e.target.value)}
               disabled={loading}
+              className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-slate-500">
               Filter commits and PRs by a specific user email.
             </p>
           </div>
         </CardContent>
         <CardFooter>
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white border-0"
+            disabled={loading}
+          >
             {loading ? "Generating..." : "Generate My Wrapped"}
           </Button>
         </CardFooter>

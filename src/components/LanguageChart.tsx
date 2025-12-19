@@ -18,12 +18,12 @@ const COLORS = [
   "#10b981", // green
   "#f59e0b", // amber
   "#ef4444", // red
-  "#8b5cf6", // purple
-  "#ec4899", // pink
   "#06b6d4", // cyan
+  "#14b8a6", // teal
+  "#0ea5e9", // sky
   "#f97316", // orange
   "#84cc16", // lime
-  "#6366f1", // indigo
+  "#22d3ee", // light cyan
 ];
 
 export function LanguageChart({ extensions }: LanguageChartProps) {

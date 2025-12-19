@@ -348,28 +348,46 @@ export default function WrappedPage() {
                 </p>
               </div>
 
-              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 border border-emerald-500/30 backdrop-blur-sm">
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-emerald-400">
-                  +{stats.commits.additions.toLocaleString()}
-                </h3>
-                <p className="text-emerald-300 text-sm sm:text-base">
-                  Lines Added
-                </p>
-              </div>
+              {/* File Change Stats */}
+              {(stats.commits.additions > 0 ||
+                stats.commits.edits > 0 ||
+                stats.commits.deletions > 0) && (
+                <>
+                  <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 border border-emerald-500/30 backdrop-blur-sm">
+                    <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-emerald-400">
+                      +{stats.commits.additions.toLocaleString()}
+                    </h3>
+                    <p className="text-emerald-300 text-sm sm:text-base">
+                      Files Added
+                    </p>
+                  </div>
 
-              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-rose-500/20 to-red-600/20 border border-rose-500/30 backdrop-blur-sm">
-                <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-rose-400">
-                  -{stats.commits.deletions.toLocaleString()}
-                </h3>
-                <p className="text-rose-300 text-sm sm:text-base">
-                  Lines Deleted
-                </p>
-              </div>
+                  {stats.commits.edits > 0 && (
+                    <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/20 to-yellow-600/20 border border-amber-500/30 backdrop-blur-sm">
+                      <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-amber-400">
+                        ~{stats.commits.edits.toLocaleString()}
+                      </h3>
+                      <p className="text-amber-300 text-sm sm:text-base">
+                        Files Edited
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-rose-500/20 to-red-600/20 border border-rose-500/30 backdrop-blur-sm">
+                    <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-rose-400">
+                      -{stats.commits.deletions.toLocaleString()}
+                    </h3>
+                    <p className="text-rose-300 text-sm sm:text-base">
+                      Files Deleted
+                    </p>
+                  </div>
+                </>
+              )}
             </>
           )}
 
           {/* Pull Requests Section */}
-          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-600/20 border border-blue-500/30 backdrop-blur-sm">
+          <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-cyan-600/20 border border-blue-500/30 backdrop-blur-sm">
             <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-white">
               {stats.pullRequests.created}
             </h3>
@@ -508,81 +526,146 @@ export default function WrappedPage() {
             {/* Monthly distribution bar chart */}
             <div className="mt-6">
               <p className="text-slate-400 text-sm mb-2">PRs by Month</p>
-              <div className="flex items-end gap-1 h-24">
-                {Object.entries(stats.pullRequests.byMonth || {}).map(
-                  ([month, count]) => {
-                    const maxCount = Math.max(
-                      ...Object.values(stats.pullRequests.byMonth || {})
-                    );
-                    const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                    return (
-                      <div
-                        key={month}
-                        className="flex-1 flex flex-col items-center"
-                      >
+              {(() => {
+                const byMonth = stats.pullRequests.byMonth || {};
+                const months = [
+                  "Jan",
+                  "Feb",
+                  "Mar",
+                  "Apr",
+                  "May",
+                  "Jun",
+                  "Jul",
+                  "Aug",
+                  "Sep",
+                  "Oct",
+                  "Nov",
+                  "Dec",
+                ];
+                const values = months.map((m) => byMonth[m] || 0);
+                const maxCount = Math.max(...values, 1);
+                // Fixed height per PR unit - 40px per PR, makes differences very visible
+                const heightPerPR = 40;
+                const maxHeight = maxCount * heightPerPR;
+
+                return (
+                  <div
+                    className="flex items-end gap-2"
+                    style={{
+                      height: `${Math.max(maxHeight + 24, 80)}px`,
+                      paddingTop: "24px",
+                    }}
+                  >
+                    {months.map((month) => {
+                      const count = byMonth[month] || 0;
+                      const barHeight = count * heightPerPR;
+                      return (
                         <div
-                          className="w-full bg-gradient-to-t from-emerald-600 to-teal-400 rounded-t transition-all hover:from-emerald-500 hover:to-teal-300"
-                          style={{
-                            height: `${height}%`,
-                            minHeight: count > 0 ? "4px" : "0",
-                          }}
-                          title={`${month}: ${count} PRs`}
-                        />
-                        <span className="text-xs text-slate-500 mt-1 hidden sm:block">
-                          {month}
-                        </span>
-                        <span className="text-xs text-slate-500 mt-1 sm:hidden">
-                          {month.charAt(0)}
-                        </span>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
+                          key={month}
+                          className="flex-1 flex flex-col items-center relative"
+                        >
+                          {/* Count label always visible above bar */}
+                          {count > 0 && (
+                            <div
+                              className="absolute left-1/2 -translate-x-1/2 text-slate-300 text-xs font-medium"
+                              style={{ bottom: `${barHeight + 20}px` }}
+                            >
+                              {count}
+                            </div>
+                          )}
+                          <div
+                            className="w-full bg-gradient-to-t from-emerald-600 to-teal-400 rounded-t transition-all hover:from-emerald-500 hover:to-teal-300"
+                            style={{
+                              height: `${barHeight}px`,
+                            }}
+                            title={`${month}: ${count} PRs`}
+                          />
+                          <span className="text-xs text-slate-500 mt-1 hidden sm:block">
+                            {month}
+                          </span>
+                          <span className="text-xs text-slate-500 mt-1 sm:hidden">
+                            {month.charAt(0)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
             {/* Day of week distribution */}
             <div className="mt-6">
               <p className="text-slate-400 text-sm mb-2">PRs by Day of Week</p>
-              <div className="flex items-end gap-1 h-16">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                  (day, idx) => {
-                    const dayNames = [
-                      "Sunday",
-                      "Monday",
-                      "Tuesday",
-                      "Wednesday",
-                      "Thursday",
-                      "Friday",
-                      "Saturday",
-                    ];
-                    const fullDay = dayNames[idx];
-                    const count =
-                      stats.pullRequests.byDayOfWeek?.[fullDay] || 0;
-                    const maxCount = Math.max(
-                      ...Object.values(stats.pullRequests.byDayOfWeek || {})
-                    );
-                    const height = maxCount > 0 ? (count / maxCount) * 100 : 0;
-                    return (
-                      <div
-                        key={day}
-                        className="flex-1 flex flex-col items-center"
-                      >
+              {(() => {
+                const dayNames = [
+                  "Sunday",
+                  "Monday",
+                  "Tuesday",
+                  "Wednesday",
+                  "Thursday",
+                  "Friday",
+                  "Saturday",
+                ];
+                const shortDays = [
+                  "Sun",
+                  "Mon",
+                  "Tue",
+                  "Wed",
+                  "Thu",
+                  "Fri",
+                  "Sat",
+                ];
+                const values = dayNames.map(
+                  (d) => stats.pullRequests.byDayOfWeek?.[d] || 0
+                );
+                const maxCount = Math.max(...values, 1);
+                // Fixed height per PR unit - 30px per PR
+                const heightPerPR = 30;
+                const maxHeight = maxCount * heightPerPR;
+
+                return (
+                  <div
+                    className="flex items-end gap-2"
+                    style={{
+                      height: `${Math.max(maxHeight + 24, 60)}px`,
+                      paddingTop: "24px",
+                    }}
+                  >
+                    {shortDays.map((day, idx) => {
+                      const fullDay = dayNames[idx];
+                      const count =
+                        stats.pullRequests.byDayOfWeek?.[fullDay] || 0;
+                      const barHeight = count * heightPerPR;
+                      return (
                         <div
-                          className="w-full bg-gradient-to-t from-cyan-600 to-blue-500 rounded-t transition-all hover:from-cyan-500 hover:to-blue-400"
-                          style={{
-                            height: `${height}%`,
-                            minHeight: count > 0 ? "4px" : "0",
-                          }}
-                          title={`${fullDay}: ${count} PRs`}
-                        />
-                        <span className="text-xs text-slate-500 mt-1">
-                          {day.charAt(0)}
-                        </span>
-                      </div>
-                    );
-                  }
-                )}
-              </div>
+                          key={day}
+                          className="flex-1 flex flex-col items-center relative"
+                        >
+                          {/* Count label always visible above bar */}
+                          {count > 0 && (
+                            <div
+                              className="absolute left-1/2 -translate-x-1/2 text-slate-300 text-xs font-medium"
+                              style={{ bottom: `${barHeight + 20}px` }}
+                            >
+                              {count}
+                            </div>
+                          )}
+                          <div
+                            className="w-full bg-gradient-to-t from-cyan-600 to-blue-500 rounded-t transition-all hover:from-cyan-500 hover:to-blue-400"
+                            style={{
+                              height: `${barHeight}px`,
+                            }}
+                            title={`${fullDay}: ${count} PRs`}
+                          />
+                          <span className="text-xs text-slate-500 mt-1">
+                            {day.charAt(0)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}

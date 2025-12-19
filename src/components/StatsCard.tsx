@@ -14,7 +14,7 @@ interface StatsCardProps {
 }
 
 const variantStyles = {
-  gradient: "bg-gradient-to-br from-blue-500 to-purple-600 text-white",
+  gradient: "bg-gradient-to-br from-blue-500 to-cyan-600 text-white",
   blue: "bg-gradient-to-br from-blue-400 to-blue-600 text-white",
   green: "bg-gradient-to-br from-green-400 to-emerald-600 text-white",
   orange: "bg-gradient-to-br from-orange-400 to-red-500 text-white",

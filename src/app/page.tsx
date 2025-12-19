@@ -72,10 +72,10 @@ export default function Home() {
   // Show loading state while checking config
   if (checkingConfig) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center p-6">
+      <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="text-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="text-muted-foreground">Checking configuration...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto"></div>
+          <p className="text-slate-400">Checking configuration...</p>
         </div>
       </main>
     );
@@ -87,14 +87,19 @@ export default function Home() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-6 md:p-24">
+    <main className="flex min-h-screen flex-col items-center justify-center p-6 md:p-24 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="w-full max-w-4xl space-y-8">
         {/* Hero Section */}
         <div className="text-center space-y-4">
-          <h1 className="text-5xl md:text-6xl font-bold tracking-tight">
+          <div className="flex justify-center mb-4">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500 flex items-center justify-center">
+              <span className="text-4xl">🎁</span>
+            </div>
+          </div>
+          <h1 className="text-5xl md:text-6xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">
             Azure DevOps Wrapped
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-xl text-slate-400 max-w-2xl mx-auto">
             Discover your year in code with beautiful insights, stats, and
             achievements from your Azure DevOps repositories.
           </p>
@@ -106,7 +111,7 @@ export default function Home() {
         </div>
 
         {/* Footer */}
-        <div className="text-center text-sm text-muted-foreground">
+        <div className="text-center text-sm text-slate-500">
           <p>
             Your data stays private. We never store your Personal Access Token
             or any sensitive information.

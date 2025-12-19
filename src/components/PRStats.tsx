@@ -26,7 +26,7 @@ export function PRStats({ pullRequests }: PRStatsProps) {
       icon: <MessageSquare className="w-8 h-8" />,
       label: "Reviewed",
       value: pullRequests.reviewed,
-      color: "text-purple-600 dark:text-purple-400",
+      color: "text-cyan-600 dark:text-cyan-400",
     },
   ];
 

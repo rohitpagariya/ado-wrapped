@@ -36,7 +36,7 @@ export function InsightsCard({ insights }: InsightsCardProps) {
       transition={{ duration: 0.5, ease: "easeOut" }}
       className="w-full"
     >
-      <Card className="bg-gradient-to-br from-purple-500 to-pink-600 text-white border-none shadow-2xl min-h-[400px]">
+      <Card className="bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-none shadow-2xl min-h-[400px]">
         <CardHeader className="text-center space-y-2">
           <div className="text-6xl mb-2">
             <Sparkles className="w-16 h-16 mx-auto" />
