@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 import { useToast } from "@/hooks/use-toast";
-import { migrateConfigToProjectsArray } from "@/lib/config";
+import { migrateConfigToProjectsArray } from "@/lib/config-utils";
 import type { WrappedConfig } from "@/types";
 
 // Re-export for backward compatibility

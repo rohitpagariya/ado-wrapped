@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { exportToJSON, exportToMarkdown } from "@/lib/export";
-import { migrateConfigToProjectsArray } from "@/lib/config";
+import { migrateConfigToProjectsArray } from "@/lib/config-utils";
 import type { WrappedStats } from "@/types";
 import type { WrappedConfig } from "@/components/ConfigForm";
 import { Download, FileJson, FileText, Check, Loader2 } from "lucide-react";
