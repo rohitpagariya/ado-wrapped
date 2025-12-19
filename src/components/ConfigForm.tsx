@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -21,26 +21,18 @@ export type { WrappedConfig } from "@/types";
 interface ConfigFormProps {
   onSubmit: (config: WrappedConfig) => void;
   loading?: boolean;
+  initialConfig?: Partial<WrappedConfig>;
 }
 
-export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
+export function ConfigForm({
+  onSubmit,
+  loading = false,
+  initialConfig,
+}: ConfigFormProps) {
   const { toast } = useToast();
   const [config, setConfig] = useState<WrappedConfig>(() => {
-    // NOTE: We use localStorage (not sessionStorage) to persist non-sensitive config
-    // (org, project, repo, year) across sessions for convenience.
-    // The PAT is explicitly excluded when saving (see handleSubmit) for security.
-    // The PAT is only stored in sessionStorage via the parent page after submission.
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ado-wrapped-config");
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error("Failed to parse saved config:", e);
-        }
-      }
-    }
-    return {
+    // Start with default values
+    const defaults: WrappedConfig = {
       pat: "",
       organization: "",
       project: "",
@@ -48,7 +40,37 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
       year: new Date().getFullYear() - 1, // Default to last year
       userEmail: "",
     };
+
+    // Try to load from localStorage (non-sensitive config persisted across sessions)
+    // The PAT is explicitly excluded when saving (see handleSubmit) for security.
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("ado-wrapped-config");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          return { ...defaults, ...parsed };
+        } catch (e) {
+          console.error("Failed to parse saved config:", e);
+        }
+      }
+    }
+
+    return defaults;
   });
+
+  // Apply initialConfig from server (env variables) when provided
+  // This runs after mount, allowing server config to override localStorage
+  useEffect(() => {
+    if (initialConfig) {
+      console.log("📋 Pre-populating form with server config:", initialConfig);
+      setConfig((prev) => ({
+        ...prev,
+        ...initialConfig,
+        // Never override PAT from server for security
+        pat: prev.pat,
+      }));
+    }
+  }, [initialConfig]);
 
   const [errors, setErrors] = useState<
     Partial<Record<keyof WrappedConfig, string>>

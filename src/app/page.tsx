@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { ConfigForm, type WrappedConfig } from "@/components/ConfigForm";
 import { useToast } from "@/hooks/use-toast";
@@ -9,45 +9,45 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [checkingConfig, setCheckingConfig] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const [isReady, setIsReady] = useState(false);
+  const [envConfig, setEnvConfig] = useState<Partial<WrappedConfig> | null>(
+    null
+  );
+  const hasCheckedConfig = useRef(false);
 
-  // Check for server-side config on mount
+  // Check for server-side config on mount to pre-populate form
   useEffect(() => {
+    // Prevent double-execution in React StrictMode
+    if (hasCheckedConfig.current) {
+      return;
+    }
+    hasCheckedConfig.current = true;
+
     const checkServerConfig = async () => {
       try {
+        console.log("🔍 Checking server config for pre-population...");
         const response = await fetch("/api/config");
-        const data = await response.json();
 
-        if (data.hasConfig && data.config) {
-          console.log(
-            "✅ Server config found, auto-navigating to wrapped page"
-          );
-          // Store server config in sessionStorage with a flag
-          sessionStorage.setItem(
-            "ado-wrapped-config",
-            JSON.stringify({
-              ...data.config,
-              useServerPAT: true, // Flag to tell wrapped page to use server PAT
-            })
-          );
-          // Auto-navigate to wrapped page
-          router.push("/wrapped");
-        } else {
-          console.log("ℹ️ No server config, showing form");
-          setShowForm(true);
+        if (response.ok) {
+          const data = await response.json();
+          console.log("📋 Config response:", data);
+
+          if (data.config) {
+            console.log("✅ Server config found, will pre-populate form");
+            // Store config for pre-population (PAT is not included from server)
+            setEnvConfig(data.config);
+          }
         }
       } catch (error) {
-        console.error("Failed to check server config:", error);
-        // Show form on error
-        setShowForm(true);
+        console.error("❌ Failed to check server config:", error);
+        // Continue without pre-population
       } finally {
-        setCheckingConfig(false);
+        setIsReady(true);
       }
     };
 
     checkServerConfig();
-  }, [router]);
+  }, []);
 
   const handleSubmit = async (config: WrappedConfig) => {
     setLoading(true);
@@ -70,20 +70,15 @@ export default function Home() {
   };
 
   // Show loading state while checking config
-  if (checkingConfig) {
+  if (!isReady) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
         <div className="text-center space-y-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-500 mx-auto"></div>
-          <p className="text-slate-400">Checking configuration...</p>
+          <p className="text-slate-400">Loading...</p>
         </div>
       </main>
     );
-  }
-
-  // Don't show form until we've checked for server config
-  if (!showForm) {
-    return null;
   }
 
   return (
@@ -107,7 +102,11 @@ export default function Home() {
 
         {/* Configuration Form */}
         <div className="flex justify-center">
-          <ConfigForm onSubmit={handleSubmit} loading={loading} />
+          <ConfigForm
+            onSubmit={handleSubmit}
+            loading={loading}
+            initialConfig={envConfig ?? undefined}
+          />
         </div>
 
         {/* Footer */}

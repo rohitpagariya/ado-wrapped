@@ -115,43 +115,44 @@ export default function WrappedPage() {
           return;
         }
 
-        const config: WrappedConfig & { useServerPAT?: boolean } =
-          JSON.parse(configStr);
+        const config: WrappedConfig = JSON.parse(configStr);
+
+        // Validate that we have required fields including PAT
+        if (
+          !config.pat ||
+          !config.organization ||
+          !config.project ||
+          !config.repository
+        ) {
+          console.error("Missing required config fields");
+          router.push("/");
+          return;
+        }
 
         await updateStep("Preparing API request...", 20);
 
         // Build API URL with query parameters
-        // If using server config, don't send params (API will load from .env)
-        const params = config.useServerPAT
-          ? new URLSearchParams()
-          : new URLSearchParams({
-              organization: config.organization,
-              project: config.project,
-              repository: config.repository,
-              year: config.year.toString(),
-            });
+        const params = new URLSearchParams({
+          organization: config.organization,
+          project: config.project,
+          repository: config.repository,
+          year: config.year.toString(),
+        });
 
-        if (config.userEmail && !config.useServerPAT) {
+        if (config.userEmail) {
           params.append("userEmail", config.userEmail);
         }
 
-        // Fetch stats from API
-        // If using server PAT, don't send Authorization header
-        const headers: HeadersInit = config.useServerPAT
-          ? {}
-          : {
-              Authorization: `Bearer ${config.pat}`,
-            };
+        // Fetch stats from API with user's PAT
+        const headers: HeadersInit = {
+          Authorization: `Bearer ${config.pat}`,
+        };
 
-        const url = config.useServerPAT
-          ? "/api/stats"
-          : `/api/stats?${params.toString()}`;
+        const url = `/api/stats?${params.toString()}`;
 
         await updateStep("Fetching commits and pull requests...", 40);
 
-        console.log(`Fetching stats from ${url}`, {
-          useServerPAT: config.useServerPAT,
-        });
+        console.log(`Fetching stats from ${url}`);
 
         const response = await fetch(url, { headers });
 
