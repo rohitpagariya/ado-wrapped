@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 import { useToast } from "@/hooks/use-toast";
+import { migrateConfigToProjectsArray } from "@/lib/config";
 import type { WrappedConfig } from "@/types";
 
 // Re-export for backward compatibility
@@ -55,12 +56,9 @@ export function ConfigForm({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          // Handle migration from old 'project' field to new 'projects' array
-          if (parsed.project && !parsed.projects) {
-            parsed.projects = [parsed.project];
-            delete parsed.project;
-          }
-          return { ...defaults, ...parsed };
+          // Use centralized migration for legacy 'project' field
+          const migrated = migrateConfigToProjectsArray(parsed);
+          return { ...defaults, ...migrated };
         } catch (e) {
           console.error("Failed to parse saved config:", e);
         }
@@ -130,10 +128,20 @@ export function ConfigForm({
   );
 
   // Debounced fetch when org or PAT changes
+  // Only fetch when PAT looks complete (Azure DevOps PATs are 52+ chars)
+  // and organization has no spaces (likely complete)
+  const MIN_PAT_LENGTH = 50;
   useEffect(() => {
+    const orgLooksComplete = config.organization.trim().length > 0 && !config.organization.includes(" ");
+    const patLooksComplete = config.pat.length >= MIN_PAT_LENGTH;
+    
+    if (!orgLooksComplete || !patLooksComplete) {
+      return; // Don't fetch until both look complete
+    }
+
     const timeoutId = setTimeout(() => {
       fetchProjects(config.organization, config.pat);
-    }, 500); // Wait 500ms after user stops typing
+    }, 300); // Shorter delay since we wait for complete values
 
     return () => clearTimeout(timeoutId);
   }, [config.organization, config.pat, fetchProjects]);

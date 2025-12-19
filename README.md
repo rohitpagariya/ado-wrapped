@@ -42,29 +42,28 @@ Open [http://localhost:3000](http://localhost:3000).
 
 #### Two Usage Modes:
 
-**1. Auto-Configuration (Recommended for Development)**
+**1. Pre-populated Configuration (Recommended for Development)**
 
-Fill in all required values in `.env`:
+Fill in values in `.env` to pre-populate the form:
 
 ```bash
 # Copy example and edit with your values
 cp .env.example .env
-# Edit .env with your ADO_ORGANIZATION, ADO_PROJECT, ADO_REPOSITORY, ADO_PAT, ADO_YEAR
+# Edit .env with your ADO_ORGANIZATION, ADO_PROJECTS, ADO_REPOSITORY, ADO_PAT, ADO_YEAR
 ```
 
-When all values are present, the app will:
+When `.env` values are present:
 
-- ✅ Skip the landing page form
-- ✅ Automatically fetch and display stats
-- ✅ Use server-side PAT (never sent to browser)
+- ✅ Form fields are pre-populated (except PAT for security)
+- ✅ Just enter your PAT and click Generate
+- ✅ Supports multiple projects via `ADO_PROJECTS=Project1,Project2`
 
 **2. Manual Configuration (Default)**
 
 If `.env` is missing or incomplete:
 
-- ❌ Shows the configuration form on landing page
-- 👤 Users enter their own PAT and details
-- 🔒 PAT stored only in browser session
+- 📝 Enter all details manually in the form
+- 🔒 PAT stored only in browser session (never persisted)
 
 ### Getting a PAT
 

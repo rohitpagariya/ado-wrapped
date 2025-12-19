@@ -22,7 +22,11 @@ export async function GET(request: NextRequest) {
     if (!pat) {
       console.error(`[${requestId}] ❌ Missing PAT`);
       return NextResponse.json(
-        { error: "Authorization header with PAT is required" },
+        {
+          error: "Authorization header with PAT is required",
+          code: "MISSING_PAT",
+          required: ["Authorization header (Bearer token)"],
+        },
         { status: 401 }
       );
     }
@@ -30,7 +34,11 @@ export async function GET(request: NextRequest) {
     if (!organization) {
       console.error(`[${requestId}] ❌ Missing organization`);
       return NextResponse.json(
-        { error: "Organization query parameter is required" },
+        {
+          error: "Organization query parameter is required",
+          code: "MISSING_ORGANIZATION",
+          required: ["organization"],
+        },
         { status: 400 }
       );
     }
@@ -59,6 +67,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         error: error.message || "Failed to fetch projects",
+        code: "PROJECTS_FETCH_ERROR",
+        details:
+          process.env.NODE_ENV === "development" ? error.stack : undefined,
       },
       { status: 500 }
     );

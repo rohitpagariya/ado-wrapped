@@ -69,12 +69,23 @@ export async function fetchWorkItems(
  * Build WIQL query for fetching resolved/closed work items.
  * All filtering is done in the query - no client-side filtering needed.
  */
+/**
+ * Escape single quotes for WIQL query to prevent injection
+ */
+function escapeWiqlString(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
 function buildWiqlQuery(
   project: string,
   userEmail: string,
   startDate: string,
   endDate: string
 ): string {
+  // Escape user inputs to prevent WIQL injection
+  const safeProject = escapeWiqlString(project);
+  const safeUserEmail = escapeWiqlString(userEmail);
+
   // Note: We use EVER [System.AssignedTo] = to match items that were assigned
   // to the user at any point, which captures items resolved while assigned to them.
   // We filter on ChangedDate since ResolvedDate/ClosedDate may not exist in all process templates.
@@ -86,10 +97,10 @@ function buildWiqlQuery(
            [System.Tags], [System.AreaPath], [Microsoft.VSTS.Common.Priority],
            [Microsoft.VSTS.Common.Severity]
     FROM WorkItems
-    WHERE [System.TeamProject] = '${project}'
+    WHERE [System.TeamProject] = '${safeProject}'
       AND [System.State] IN ('Resolved', 'Closed', 'Done', 'Completed')
       AND NOT [System.Reason] CONTAINS 'Rejected'
-      AND EVER [System.AssignedTo] = '${userEmail}'
+      AND EVER [System.AssignedTo] = '${safeUserEmail}'
       AND [System.ChangedDate] >= '${startDate}'
       AND [System.ChangedDate] <= '${endDate}'
     ORDER BY [System.ChangedDate] DESC

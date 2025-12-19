@@ -86,7 +86,7 @@ ado-wrapped/
 interface WrappedConfig {
   pat: string; // Personal Access Token
   organization: string; // e.g., "microsoft"
-  project: string; // e.g., "Teams"
+  projects: string[]; // Array of project names, e.g., ["Teams", "Office"]
   repository: string; // e.g., "teams-frontend"
   year: number; // e.g., 2024
   userEmail?: string; // Optional: filter by specific user
@@ -103,6 +103,21 @@ interface WrappedStats {
   workItems: WorkItemStats; // Resolved/closed work items
   builds: BuildStats; // Stub - not yet implemented
   insights: Insights;
+}
+
+interface WorkItemStats {
+  total: number;
+  byType: Record<string, number>; // "Bug": 23, "User Story": 45
+  byPriority: Record<number, number>;
+  byMonth: Record<string, number>;
+  bugsFixed: number;
+  bugsBySeverity: Record<string, number>;
+  topTags: Array<{ tag: string; count: number }>;
+  avgResolutionDays: number;
+  fastestResolution: { id: number; title: string; hours: number } | null;
+  firstResolvedDate: string;
+  lastResolvedDate: string;
+  topAreas: Array<{ area: string; count: number }>;
 }
 ```
 
@@ -176,8 +191,11 @@ const headers = {
 
 ### API Endpoints Used
 
+- **Projects**: `/_apis/projects` (list all projects in org)
 - **Commits**: `/{project}/_apis/git/repositories/{repo}/commits`
 - **Pull Requests**: `/{project}/_apis/git/pullrequests`
+- **Work Items (WIQL)**: `/{project}/_apis/wit/wiql`
+- **Work Items (Details)**: `/{project}/_apis/wit/workitems`
 - **API Version**: 7.0
 
 ### Error Handling
@@ -217,7 +235,7 @@ The client handles common errors:
 
 The API route is at `src/app/api/stats/route.ts`:
 
-- Accepts query params: organization, project, repository, year, userEmail
+- Accepts query params: organization, projects (comma-separated), repository, year, userEmail
 - Returns `WrappedStats` JSON
 - PAT passed via Authorization header
 

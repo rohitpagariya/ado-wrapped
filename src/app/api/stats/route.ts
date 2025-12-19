@@ -105,10 +105,9 @@ export async function GET(request: NextRequest) {
     );
     console.log(`[${requestId}] 📅 Date range: ${startDate} to ${endDate}`);
 
-    // Note: Caching is enabled by default (enableCache: true)
-    // This is beneficial even in production as identical requests
-    // (same org/project/repo/year) return cached data instantly.
-    // To disable: add enableCache: false to fetch options below
+    // Note: Caching is DISABLED by default (set ADO_CACHE_ENABLED=true to enable)
+    // This avoids disk storage issues in production/serverless environments.
+    // For local development, enable caching in .env for faster iteration.
 
     console.log(
       `[${requestId}] 🔄 Starting parallel data fetch across ${projects.length} project(s)...`
@@ -121,10 +120,55 @@ export async function GET(request: NextRequest) {
     // Fetch data from all projects in parallel
     // Each project fetches commits, PRs, and work items concurrently
     // Errors for individual projects are silently ignored - we only fail if ALL projects fail
+    // Use Sets for efficient deduplication during merge (items may appear in multiple projects)
+    const seenCommitIds = new Set<string>();
+    const seenPRIds = new Set<string>();
+    const seenWorkItemIds = new Set<string>();
     const allCommits: GitCommit[] = [];
     const allPullRequests: GitPullRequest[] = [];
     const allWorkItems: WorkItem[] = [];
     const projectErrors: { project: string; error: string }[] = [];
+
+    // Helper to try fetching commits from master, then main if master fails
+    const fetchCommitsWithBranchFallback = async (
+      org: string,
+      proj: string,
+      repo: string,
+      patToken: string,
+      from: string,
+      to: string,
+      email?: string
+    ): Promise<GitCommit[]> => {
+      // Try master first
+      try {
+        const commits = await fetchCommits({
+          organization: org,
+          project: proj,
+          repository: repo,
+          pat: patToken,
+          fromDate: from,
+          toDate: to,
+          userEmail: email,
+          branch: "master",
+        });
+        if (commits.length > 0) {
+          return commits;
+        }
+      } catch {
+        // master branch doesn't exist, try main
+      }
+      // Try main branch
+      return fetchCommits({
+        organization: org,
+        project: proj,
+        repository: repo,
+        pat: patToken,
+        fromDate: from,
+        toDate: to,
+        userEmail: email,
+        branch: "main",
+      });
+    };
 
     // Process all projects in parallel with error handling per project
     const projectResults = await Promise.all(
@@ -136,16 +180,15 @@ export async function GET(request: NextRequest) {
           // Each fetch is wrapped in its own try-catch to handle partial failures
           const [commitsResult, pullRequestsResult, workItemsResult] =
             await Promise.all([
-              fetchCommits({
-                organization: organization!,
+              fetchCommitsWithBranchFallback(
+                organization!,
                 project,
-                repository: repository!,
-                pat: pat!,
-                fromDate: startDate,
-                toDate: endDate,
-                userEmail: userEmail || undefined,
-                branch: "master",
-              }).catch((err) => {
+                repository!,
+                pat!,
+                startDate,
+                endDate,
+                userEmail || undefined
+              ).catch((err) => {
                 console.warn(
                   `[${requestId}] ⚠️ ${project}: Failed to fetch commits: ${err.message}`
                 );
@@ -206,11 +249,29 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Merge results from all projects
+    // Merge results from all projects with deduplication during merge
+    // This is more memory-efficient than collecting all then deduplicating
     for (const result of projectResults) {
-      allCommits.push(...result.commits);
-      allPullRequests.push(...result.pullRequests);
-      allWorkItems.push(...result.workItems);
+      for (const commit of result.commits) {
+        if (!seenCommitIds.has(commit.commitId)) {
+          seenCommitIds.add(commit.commitId);
+          allCommits.push(commit);
+        }
+      }
+      for (const pr of result.pullRequests) {
+        const prId = pr.pullRequestId.toString();
+        if (!seenPRIds.has(prId)) {
+          seenPRIds.add(prId);
+          allPullRequests.push(pr);
+        }
+      }
+      for (const wi of result.workItems) {
+        const wiId = wi.id.toString();
+        if (!seenWorkItemIds.has(wiId)) {
+          seenWorkItemIds.add(wiId);
+          allWorkItems.push(wi);
+        }
+      }
     }
 
     // Check if we got any data at all
@@ -245,19 +306,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Deduplicate by ID (in case same item appears in multiple projects)
-    const uniqueCommits = deduplicateById(allCommits, (c) => c.commitId);
-    const uniquePRs = deduplicateById(allPullRequests, (pr) =>
-      pr.pullRequestId.toString()
-    );
-    const uniqueWorkItems = deduplicateById(allWorkItems, (wi) =>
-      wi.id.toString()
-    );
-
     const fetchDuration = Date.now() - fetchStartTime;
     console.log(`[${requestId}] ✅ Data fetched in ${fetchDuration}ms`);
     console.log(
-      `[${requestId}] 📈 Total: Commits: ${uniqueCommits.length}, PRs: ${uniquePRs.length}, Work Items: ${uniqueWorkItems.length}`
+      `[${requestId}] 📈 Total: Commits: ${allCommits.length}, PRs: ${allPullRequests.length}, Work Items: ${allWorkItems.length}`
     );
 
     // Aggregate into stats
@@ -265,9 +317,9 @@ export async function GET(request: NextRequest) {
     const aggregateStartTime = Date.now();
 
     const stats = aggregateStats({
-      commits: uniqueCommits,
-      pullRequests: uniquePRs,
-      workItems: uniqueWorkItems,
+      commits: allCommits,
+      pullRequests: allPullRequests,
+      workItems: allWorkItems,
       config: {
         organization,
         projects,
@@ -312,19 +364,4 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-/**
- * Deduplicate array items by a key extractor function
- */
-function deduplicateById<T>(items: T[], getKey: (item: T) => string): T[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const key = getKey(item);
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
 }

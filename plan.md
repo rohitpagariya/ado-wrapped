@@ -12,9 +12,9 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 │                                                                 │
 │  Frontend (React/App Router)    Backend (API Routes)           │
 │  • Landing page (/)             • /api/stats endpoint           │
-│  • Wrapped dashboard (/wrapped) • Azure DevOps client           │
-│  • Story-style animations       • Stats aggregation             │
-│  • Export functionality                                         │
+│  • Wrapped dashboard (/wrapped) • /api/projects endpoint        │
+│  • Story-style animations       • Azure DevOps client           │
+│  • Export functionality         • Stats aggregation             │
 │                                                                 │
 │  Shared: TypeScript types, utility functions                    │
 └─────────────────────────────────────────────────────────────────┘
@@ -22,7 +22,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     Azure DevOps REST API                       │
-│   • Single org/project/repo scope                              │
+│   • Multi-project support (aggregate across projects)          │
 │   • PAT auth via Basic header                                   │
 │   • Commits, Pull Requests, and Work Items endpoints            │
 └─────────────────────────────────────────────────────────────────┘
@@ -37,7 +37,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 ### 1. Configuration (Landing Page)
 
 - User enters Azure DevOps details via `ConfigForm` component
-- Required: organization, project, repository, year, PAT
+- Required: organization, projects (one or more), repository, year, PAT
 - Optional: user email filter
 - Config stored in `sessionStorage` (never server-side)
 - Navigates to `/wrapped` on submit
@@ -123,7 +123,8 @@ src/
 **Query Parameters:**
 
 - `organization` (required)
-- `project` (required)
+- `projects` (required) - comma-separated list of project names
+- `project` (legacy, optional) - single project name (for backwards compatibility)
 - `repository` (required)
 - `year` (required)
 - `userEmail` (optional)
@@ -133,6 +134,28 @@ src/
 - `Authorization: Bearer <PAT>`
 
 **Response:** `WrappedStats` JSON object
+
+### Projects Endpoint: `GET /api/projects`
+
+Fetches all projects in an organization that the user has access to.
+
+**Query Parameters:**
+
+- `organization` (required)
+
+**Headers:**
+
+- `Authorization: Bearer <PAT>`
+
+**Response:**
+```json
+{
+  "count": 5,
+  "projects": [
+    { "id": "...", "name": "ProjectName", "description": "...", "state": "wellFormed" }
+  ]
+}
+```
 
 ---
 

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { exportToJSON, exportToMarkdown } from "@/lib/export";
+import { migrateConfigToProjectsArray } from "@/lib/config";
 import type { WrappedStats } from "@/types";
 import type { WrappedConfig } from "@/components/ConfigForm";
 import { Download, FileJson, FileText, Check, Loader2 } from "lucide-react";
@@ -115,17 +116,16 @@ export default function WrappedPage() {
           return;
         }
 
-        const config: WrappedConfig = JSON.parse(configStr);
+        const rawConfig = JSON.parse(configStr);
+        // Use centralized migration for legacy 'project' field
+        const config: WrappedConfig = migrateConfigToProjectsArray(rawConfig);
 
         // Validate that we have required fields including PAT
-        // Support both new 'projects' array and legacy 'project' field
-        const projects =
-          config.projects ||
-          ((config as any).project ? [(config as any).project] : []);
         if (
           !config.pat ||
           !config.organization ||
-          projects.length === 0 ||
+          !config.projects ||
+          config.projects.length === 0 ||
           !config.repository
         ) {
           console.error("Missing required config fields");
@@ -139,7 +139,7 @@ export default function WrappedPage() {
         // Use 'projects' param with comma-separated values
         const params = new URLSearchParams({
           organization: config.organization,
-          projects: projects.join(","),
+          projects: config.projects.join(","),
           repository: config.repository,
           year: config.year.toString(),
         });
@@ -156,7 +156,7 @@ export default function WrappedPage() {
         const url = `/api/stats?${params.toString()}`;
 
         await updateStep(
-          `Fetching data from ${projects.length} project(s)...`,
+          `Fetching data from ${config.projects.length} project(s)...`,
           40
         );
 
@@ -725,20 +725,20 @@ export default function WrappedPage() {
         {stats.workItems && stats.workItems.total > 0 && (
           <div className="mt-8 sm:mt-10">
             <div className="flex items-center gap-3 mb-6">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
-              <h2 className="text-xl sm:text-2xl font-bold text-violet-400 flex items-center gap-2">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-teal-500/50 to-transparent" />
+              <h2 className="text-xl sm:text-2xl font-bold text-teal-400 flex items-center gap-2">
                 <span>📋</span> Work Items
               </h2>
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-violet-500/50 to-transparent" />
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-teal-500/50 to-transparent" />
             </div>
 
             {/* Work Items Summary Cards */}
             <div className="grid gap-4 sm:gap-6 grid-cols-2 lg:grid-cols-4 mb-6">
-              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-violet-500/20 to-purple-600/20 border border-violet-500/30 backdrop-blur-sm">
+              <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-teal-500/20 to-cyan-600/20 border border-teal-500/30 backdrop-blur-sm">
                 <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-white">
                   {stats.workItems.total}
                 </h3>
-                <p className="text-violet-300 text-sm sm:text-base">
+                <p className="text-teal-300 text-sm sm:text-base">
                   Work Items Resolved
                 </p>
               </div>
@@ -829,7 +829,7 @@ export default function WrappedPage() {
                               </div>
                             )}
                             <div
-                              className="w-full bg-gradient-to-t from-violet-600 to-purple-400 rounded-t transition-all hover:from-violet-500 hover:to-purple-300"
+                              className="w-full bg-gradient-to-t from-teal-600 to-cyan-400 rounded-t transition-all hover:from-teal-500 hover:to-cyan-300"
                               style={{
                                 height: `${barHeight}px`,
                                 minHeight: count > 0 ? "4px" : "0",
@@ -1008,7 +1008,7 @@ export default function WrappedPage() {
                               </div>
                             )}
                             <div
-                              className="w-full bg-gradient-to-t from-violet-600 to-purple-400 rounded-t transition-all hover:from-violet-500 hover:to-purple-300"
+                              className="w-full bg-gradient-to-t from-teal-600 to-cyan-400 rounded-t transition-all hover:from-teal-500 hover:to-cyan-300"
                               style={{
                                 height: `${barHeight}px`,
                                 minHeight: count > 0 ? "4px" : "0",
