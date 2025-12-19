@@ -132,9 +132,11 @@ export function ConfigForm({
   // and organization has no spaces (likely complete)
   const MIN_PAT_LENGTH = 50;
   useEffect(() => {
-    const orgLooksComplete = config.organization.trim().length > 0 && !config.organization.includes(" ");
+    const orgLooksComplete =
+      config.organization.trim().length > 0 &&
+      !config.organization.includes(" ");
     const patLooksComplete = config.pat.length >= MIN_PAT_LENGTH;
-    
+
     if (!orgLooksComplete || !patLooksComplete) {
       return; // Don't fetch until both look complete
     }

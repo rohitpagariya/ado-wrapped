@@ -148,11 +148,17 @@ Fetches all projects in an organization that the user has access to.
 - `Authorization: Bearer <PAT>`
 
 **Response:**
+
 ```json
 {
   "count": 5,
   "projects": [
-    { "id": "...", "name": "ProjectName", "description": "...", "state": "wellFormed" }
+    {
+      "id": "...",
+      "name": "ProjectName",
+      "description": "...",
+      "state": "wellFormed"
+    }
   ]
 }
 ```
