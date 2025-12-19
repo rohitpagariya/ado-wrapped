@@ -143,7 +143,8 @@ export function ConfigForm({ onSubmit, loading = false }: ConfigFormProps) {
             </p>
             <p className="text-xs text-slate-500">
               Requires <span className="text-cyan-400">Read</span> permissions
-              for <span className="text-cyan-400">Code</span> and{" "}
+              for <span className="text-cyan-400">Code</span>,{" "}
+              <span className="text-cyan-400">Work Items</span>, and{" "}
               <span className="text-cyan-400">Identity</span> scopes.
             </p>
           </div>

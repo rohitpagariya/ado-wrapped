@@ -14,6 +14,10 @@ import { TimeDistributionChart } from "@/components/TimeDistributionChart";
 import { PRStats } from "@/components/PRStats";
 import { InsightsCard } from "@/components/InsightsCard";
 import { ExportButton } from "@/components/ExportButton";
+import { WorkItemStatsDisplay } from "@/components/WorkItemStats";
+import { WorkItemTypeChart } from "@/components/WorkItemTypeChart";
+import { BugStats } from "@/components/BugStats";
+import { TopTagsChart } from "@/components/TopTagsChart";
 
 interface StoryCard {
   type: StoryCardType;
@@ -39,6 +43,11 @@ export function StoryViewer({ stats }: StoryViewerProps) {
     { type: "languages", data: stats },
     { type: "streak", data: stats },
     { type: "pull-requests", data: stats },
+    { type: "work-items-total", data: stats },
+    { type: "work-items-types", data: stats },
+    { type: "bugs-fixed", data: stats },
+    { type: "resolution-speed", data: stats },
+    { type: "top-tags", data: stats },
     { type: "insights", data: stats },
     { type: "finale", data: stats },
   ];
@@ -315,6 +324,78 @@ function renderCard(card: { type: string; data: WrappedStats }) {
       return (
         <StatsCard title="Pull Requests" variant="white">
           <PRStats pullRequests={card.data.pullRequests} />
+        </StatsCard>
+      );
+
+    case "work-items-total":
+      return (
+        <StatsCard title="Work Items Resolved" variant="white">
+          <WorkItemStatsDisplay workItems={card.data.workItems} />
+        </StatsCard>
+      );
+
+    case "work-items-types":
+      return (
+        <StatsCard title="Work Item Types" variant="white">
+          <WorkItemTypeChart byType={card.data.workItems.byType} />
+        </StatsCard>
+      );
+
+    case "bugs-fixed":
+      return (
+        <StatsCard title="Bugs Squashed" variant="white">
+          <BugStats workItems={card.data.workItems} />
+        </StatsCard>
+      );
+
+    case "resolution-speed":
+      return (
+        <StatsCard
+          title="Resolution Speed"
+          value={
+            card.data.workItems.avgResolutionDays
+              ? `${card.data.workItems.avgResolutionDays.toFixed(1)} days`
+              : "N/A"
+          }
+          icon="⚡"
+          variant="purple"
+        >
+          <div className="text-center space-y-2">
+            {card.data.workItems.fastestResolution && (
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Fastest:{" "}
+                <span className="font-semibold">
+                  {card.data.workItems.fastestResolution.hours < 24
+                    ? `${card.data.workItems.fastestResolution.hours} hours`
+                    : `${Math.round(
+                        card.data.workItems.fastestResolution.hours / 24
+                      )} day${
+                        Math.round(
+                          card.data.workItems.fastestResolution.hours / 24
+                        ) === 1
+                          ? ""
+                          : "s"
+                      }`}
+                </span>
+              </p>
+            )}
+            <p className="text-gray-500 dark:text-gray-400 text-sm">
+              {card.data.workItems.avgResolutionDays
+                ? card.data.workItems.avgResolutionDays < 3
+                  ? "Lightning fast! ⚡"
+                  : card.data.workItems.avgResolutionDays < 7
+                  ? "Great turnaround! 🚀"
+                  : "Steady and thorough! 🎯"
+                : "No resolution data available"}
+            </p>
+          </div>
+        </StatsCard>
+      );
+
+    case "top-tags":
+      return (
+        <StatsCard title="Your Top Tags" variant="white">
+          <TopTagsChart topTags={card.data.workItems.topTags} />
         </StatsCard>
       );
 

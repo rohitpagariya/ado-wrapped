@@ -220,3 +220,55 @@ export interface PullRequestQueryParams {
   top?: number;
   skip?: number;
 }
+
+// ============================================
+// Work Items
+// ============================================
+
+export interface WorkItem {
+  id: number;
+  rev: number;
+  fields: WorkItemFields;
+  url: string;
+}
+
+export interface WorkItemFields {
+  "System.Id": number;
+  "System.WorkItemType": string;
+  "System.Title": string;
+  "System.State": string;
+  "System.Reason"?: string;
+  "System.AssignedTo"?: IdentityRef;
+  "System.CreatedDate": string;
+  "System.ChangedDate": string;
+  "System.ResolvedDate"?: string;
+  "System.ClosedDate"?: string;
+  "System.Tags"?: string;
+  "System.AreaPath"?: string;
+  "System.IterationPath"?: string;
+  "Microsoft.VSTS.Common.Priority"?: number;
+  "Microsoft.VSTS.Common.Severity"?: string;
+  "Microsoft.VSTS.Common.ResolvedBy"?: IdentityRef;
+  [key: string]: unknown;
+}
+
+export interface WorkItemQueryResult {
+  queryType: "flat" | "tree" | "oneHop";
+  queryResultType: "workItem" | "workItemLink";
+  asOf: string;
+  columns: WorkItemFieldReference[];
+  workItems: WorkItemReference[];
+}
+
+export interface WorkItemFieldReference {
+  referenceName: string;
+  name: string;
+  url: string;
+}
+
+export interface WorkItemReference {
+  id: number;
+  url: string;
+}
+
+export type WorkItemResponse = ApiCollectionResponse<WorkItem>;

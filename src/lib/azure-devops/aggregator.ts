@@ -2,16 +2,19 @@ import {
   format,
   parseISO,
   differenceInDays,
+  differenceInHours,
   getDay,
   getHours,
   getMonth,
 } from "date-fns";
 import { GitCommit } from "./types";
 import { GitPullRequest } from "./types";
+import { WorkItem } from "./types";
 import {
   WrappedStats,
   CommitStats,
   PullRequestStats,
+  WorkItemStats,
   Insights,
 } from "../../types";
 import {
@@ -33,6 +36,7 @@ import {
 export interface AggregatorInput {
   commits: GitCommit[];
   pullRequests: GitPullRequest[];
+  workItems: WorkItem[];
   config: {
     organization: string;
     project: string;
@@ -46,11 +50,12 @@ export interface AggregatorInput {
  * Aggregate raw Azure DevOps data into wrapped statistics
  */
 export function aggregateStats(input: AggregatorInput): WrappedStats {
-  const { commits, pullRequests, config } = input;
+  const { commits, pullRequests, workItems, config } = input;
 
   console.log(`\n📊 Aggregating stats for ${config.year}...`);
   console.log(`   Commits: ${commits.length}`);
   console.log(`   Pull Requests: ${pullRequests.length}`);
+  console.log(`   Work Items: ${workItems.length}`);
 
   return {
     meta: {
@@ -63,12 +68,7 @@ export function aggregateStats(input: AggregatorInput): WrappedStats {
     },
     commits: aggregateCommitStats(commits),
     pullRequests: aggregatePRStats(pullRequests, config.userEmail),
-    workItems: {
-      created: 0,
-      resolved: 0,
-      byType: {},
-      topTags: [],
-    },
+    workItems: aggregateWorkItemStats(workItems),
     builds: {
       total: 0,
       succeeded: 0,
@@ -511,4 +511,170 @@ function determinePersonalityFromDates(
   } else {
     return "Nine-to-Fiver";
   }
+}
+
+// ============================================
+// Work Item Aggregation
+// ============================================
+
+/**
+ * Aggregate work item statistics
+ */
+function aggregateWorkItemStats(workItems: WorkItem[]): WorkItemStats {
+  if (workItems.length === 0) {
+    return getEmptyWorkItemStats();
+  }
+
+  const byType: Record<string, number> = {};
+  const byPriority: Record<number, number> = {};
+  const byMonth: Record<string, number> = {};
+  const bugsBySeverity: Record<string, number> = {};
+  const tagCounts: Map<string, number> = new Map();
+  const areaCounts: Map<string, number> = new Map();
+
+  // Initialize months
+  MONTH_NAMES.forEach((month) => (byMonth[month] = 0));
+
+  let bugsFixed = 0;
+  let firstResolvedDate = "";
+  let lastResolvedDate = "";
+  let totalResolutionHours = 0;
+  let resolutionCount = 0;
+  let fastestResolution: { id: number; title: string; hours: number } | null =
+    null;
+
+  for (const item of workItems) {
+    const fields = item.fields;
+    const workItemType = fields["System.WorkItemType"];
+    const resolvedDate =
+      fields["System.ResolvedDate"] || fields["System.ClosedDate"];
+    const createdDate = fields["System.CreatedDate"];
+
+    // Count by type
+    byType[workItemType] = (byType[workItemType] || 0) + 1;
+
+    // Count bugs
+    if (workItemType === "Bug") {
+      bugsFixed++;
+      const severity = fields["Microsoft.VSTS.Common.Severity"];
+      if (severity) {
+        bugsBySeverity[severity] = (bugsBySeverity[severity] || 0) + 1;
+      }
+    }
+
+    // Count by priority
+    const priority = fields["Microsoft.VSTS.Common.Priority"];
+    if (priority) {
+      byPriority[priority] = (byPriority[priority] || 0) + 1;
+    }
+
+    // Track resolved date for month distribution and timeline
+    if (resolvedDate) {
+      const date = parseISO(resolvedDate);
+      const month = MONTH_NAMES[getMonth(date)];
+      byMonth[month]++;
+
+      // Track first/last resolved dates
+      if (!firstResolvedDate || resolvedDate < firstResolvedDate) {
+        firstResolvedDate = resolvedDate;
+      }
+      if (!lastResolvedDate || resolvedDate > lastResolvedDate) {
+        lastResolvedDate = resolvedDate;
+      }
+
+      // Calculate resolution time
+      if (createdDate) {
+        const created = parseISO(createdDate);
+        const resolved = parseISO(resolvedDate);
+        const hours = differenceInHours(resolved, created);
+
+        if (hours >= 0) {
+          totalResolutionHours += hours;
+          resolutionCount++;
+
+          // Track fastest resolution
+          if (!fastestResolution || hours < fastestResolution.hours) {
+            fastestResolution = {
+              id: item.id,
+              title: fields["System.Title"],
+              hours,
+            };
+          }
+        }
+      }
+    }
+
+    // Count tags
+    const tags = fields["System.Tags"];
+    if (tags) {
+      const tagList = tags.split(";").map((t) => t.trim());
+      for (const tag of tagList) {
+        if (tag) {
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+        }
+      }
+    }
+
+    // Count areas (get last segment of area path for cleaner display)
+    const areaPath = fields["System.AreaPath"];
+    if (areaPath) {
+      const areaSegments = areaPath.split("\\");
+      const area = areaSegments[areaSegments.length - 1];
+      areaCounts.set(area, (areaCounts.get(area) || 0) + 1);
+    }
+  }
+
+  // Sort and get top tags
+  const topTags = Array.from(tagCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([tag, count]) => ({ tag, count }));
+
+  // Sort and get top areas
+  const topAreas = Array.from(areaCounts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([area, count]) => ({ area, count }));
+
+  // Calculate average resolution time in days
+  const avgResolutionDays =
+    resolutionCount > 0 ? totalResolutionHours / resolutionCount / 24 : 0;
+
+  return {
+    total: workItems.length,
+    byType,
+    byPriority,
+    byMonth,
+    bugsFixed,
+    bugsBySeverity,
+    topTags,
+    avgResolutionDays: Math.round(avgResolutionDays * 10) / 10, // Round to 1 decimal
+    fastestResolution,
+    firstResolvedDate,
+    lastResolvedDate,
+    topAreas,
+  };
+}
+
+/**
+ * Return empty work item stats when no data
+ */
+function getEmptyWorkItemStats(): WorkItemStats {
+  const byMonth: Record<string, number> = {};
+  MONTH_NAMES.forEach((month) => (byMonth[month] = 0));
+
+  return {
+    total: 0,
+    byType: {},
+    byPriority: {},
+    byMonth,
+    bugsFixed: 0,
+    bugsBySeverity: {},
+    topTags: [],
+    avgResolutionDays: 0,
+    fastestResolution: null,
+    firstResolvedDate: "",
+    lastResolvedDate: "",
+    topAreas: [],
+  };
 }

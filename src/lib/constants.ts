@@ -61,6 +61,11 @@ export const STORY_CARD_TYPES = [
   "languages",
   "streak",
   "pull-requests",
+  "work-items-total",
+  "work-items-types",
+  "bugs-fixed",
+  "resolution-speed",
+  "top-tags",
   "insights",
   "finale",
 ] as const;

@@ -6,11 +6,12 @@ Your year in code — discover insights, stats, and achievements from your Azure
 
 ## What is this?
 
-Azure DevOps Wrapped generates personalized "year in review" summaries for Azure DevOps users, similar to Spotify Wrapped. Enter your Azure DevOps details, and get beautiful visualizations of your commits, pull requests, coding patterns, and developer personality insights.
+Azure DevOps Wrapped generates personalized "year in review" summaries for Azure DevOps users, similar to Spotify Wrapped. Enter your Azure DevOps details, and get beautiful visualizations of your commits, pull requests, work items, coding patterns, and developer personality insights.
 
 **Key Features:**
 
 - 📊 Commit and PR statistics with interactive charts
+- ✅ Work items resolved (bugs, tasks, user stories)
 - 🔥 Streak tracking and time-of-day patterns
 - 🌙 Developer personality insights (Night Owl, Early Bird, etc.)
 - 📥 Export to JSON or Markdown
@@ -69,7 +70,7 @@ If `.env` is missing or incomplete:
 
 1. Go to Azure DevOps → **User Settings** → **Personal Access Tokens**
 2. Click **New Token**
-3. Set scopes: **Code (Read)** and **Pull Requests (Read)**
+3. Set scopes: **Code (Read)**, **Work Items (Read)**, and **Identity (Read)**
 4. Copy the token (you won't see it again)
 
 ---

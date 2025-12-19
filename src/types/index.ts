@@ -72,10 +72,39 @@ export interface PullRequestStats {
 
 // Work item statistics
 export interface WorkItemStats {
-  created: number;
-  resolved: number;
+  // Core counts
+  total: number;
+
+  // By type breakdown
   byType: Record<string, number>; // "Bug": 23, "User Story": 45
-  topTags: string[];
+
+  // Priority breakdown
+  byPriority: Record<number, number>; // 1: 5, 2: 20, 3: 15
+
+  // Time-based distributions
+  byMonth: Record<string, number>; // "Jan": 10, "Feb": 8
+
+  // Bug-specific stats
+  bugsFixed: number;
+  bugsBySeverity: Record<string, number>; // "1 - Critical": 2, "2 - High": 5
+
+  // Tag analysis
+  topTags: Array<{ tag: string; count: number }>;
+
+  // Resolution time metrics
+  avgResolutionDays: number;
+  fastestResolution: {
+    id: number;
+    title: string;
+    hours: number;
+  } | null;
+
+  // Timeline
+  firstResolvedDate: string;
+  lastResolvedDate: string;
+
+  // Area insights
+  topAreas: Array<{ area: string; count: number }>;
 }
 
 // Build statistics

@@ -9,7 +9,7 @@ interface StatsCardProps {
   subtitle?: string;
   value?: string | number;
   icon?: string;
-  variant?: "gradient" | "blue" | "green" | "orange" | "white";
+  variant?: "gradient" | "blue" | "green" | "orange" | "purple" | "white";
   children?: ReactNode;
 }
 
@@ -18,6 +18,7 @@ const variantStyles = {
   blue: "bg-gradient-to-br from-blue-400 to-blue-600 text-white",
   green: "bg-gradient-to-br from-green-400 to-emerald-600 text-white",
   orange: "bg-gradient-to-br from-orange-400 to-red-500 text-white",
+  purple: "bg-gradient-to-br from-purple-400 to-violet-600 text-white",
   white: "bg-white dark:bg-gray-800",
 };
 

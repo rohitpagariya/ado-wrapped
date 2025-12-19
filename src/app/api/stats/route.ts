@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchCommits } from "@/lib/azure-devops/commits";
 import { fetchPullRequests } from "@/lib/azure-devops/pullRequests";
+import { fetchWorkItems } from "@/lib/azure-devops/workItems";
 import { aggregateStats } from "@/lib/azure-devops/aggregator";
 import { loadConfig, validateConfig } from "@/lib/config";
+import { createClient } from "@/lib/azure-devops/client";
 
 export async function GET(request: NextRequest) {
   const requestId = Date.now();
@@ -93,7 +95,12 @@ export async function GET(request: NextRequest) {
     // - Commits are filtered to master branch only (not individual PR commits)
     // - PRs are filtered to completed PRs targeting master branch
     // - changeCounts included in list response (no per-commit fetches needed)
-    const [commits, pullRequests] = await Promise.all([
+    // - Work items filtered server-side via WIQL (no client-side filtering)
+
+    // Create client for work items API
+    const client = createClient({ organization, pat });
+
+    const [commits, pullRequests, workItems] = await Promise.all([
       fetchCommits({
         organization,
         project,
@@ -116,12 +123,17 @@ export async function GET(request: NextRequest) {
         includeReviewed: true,
         // enableCache: true, // default
       }),
+      fetchWorkItems(client, {
+        project,
+        year: parseInt(year),
+        userEmail: userEmail || undefined,
+      }),
     ]);
 
     const fetchDuration = Date.now() - fetchStartTime;
     console.log(`[${requestId}] ✅ Data fetched in ${fetchDuration}ms`);
     console.log(
-      `[${requestId}] 📈 Commits: ${commits.length}, PRs: ${pullRequests.length}`
+      `[${requestId}] 📈 Commits: ${commits.length}, PRs: ${pullRequests.length}, Work Items: ${workItems.length}`
     );
 
     // Aggregate into stats
@@ -131,6 +143,7 @@ export async function GET(request: NextRequest) {
     const stats = aggregateStats({
       commits,
       pullRequests,
+      workItems,
       config: {
         organization,
         project,

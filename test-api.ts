@@ -20,7 +20,9 @@ import path from "path";
 import {
   fetchCommits,
   fetchPullRequests,
+  fetchWorkItems,
   aggregateStats,
+  createClient,
 } from "./src/lib/azure-devops";
 import { loadAndValidateConfig, printConfig } from "./src/lib/config";
 import type { WrappedConfig } from "./src/types";
@@ -75,11 +77,24 @@ async function testAPIIntegration() {
       includeReviewed: true,
     });
 
+    // Fetch work items (resolved/closed assigned to user)
+    console.log("3️⃣  Fetching work items...");
+    const client = createClient({
+      organization: config.organization,
+      pat: config.pat,
+    });
+    const workItems = await fetchWorkItems(client, {
+      project: config.project,
+      year: config.year,
+      userEmail: config.userEmail,
+    });
+
     // Aggregate statistics
-    console.log("3️⃣  Aggregating statistics...\n");
+    console.log("4️⃣  Aggregating statistics...\n");
     const stats = aggregateStats({
       commits,
       pullRequests,
+      workItems,
       config: {
         organization: config.organization,
         project: config.project,

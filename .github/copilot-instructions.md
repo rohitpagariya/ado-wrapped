@@ -46,6 +46,10 @@ ado-wrapped/
 │   │   ├── LanguageChart.tsx         # File type pie chart
 │   │   ├── TimeDistributionChart.tsx # Commits by hour/day charts
 │   │   ├── PRStats.tsx               # Pull request statistics
+│   │   ├── WorkItemStats.tsx         # Work item metrics
+│   │   ├── WorkItemTypeChart.tsx     # Pie chart by work item type
+│   │   ├── BugStats.tsx              # Bug severity breakdown
+│   │   ├── TopTagsChart.tsx          # Tag cloud and chart
 │   │   ├── BuildStats.tsx            # Build pipeline stats (stub)
 │   │   ├── InsightsCard.tsx          # Developer personality insights
 │   │   ├── ExportButton.tsx          # Download JSON/Markdown
@@ -57,6 +61,7 @@ ado-wrapped/
 │   │   │   ├── types.ts              # API response types
 │   │   │   ├── commits.ts            # Fetch commits with pagination
 │   │   │   ├── pullRequests.ts       # Fetch PRs with filtering
+│   │   │   ├── workItems.ts          # Fetch work items via WIQL
 │   │   │   ├── aggregator.ts         # Compute stats from raw data
 │   │   │   └── index.ts              # Public exports
 │   │   ├── export.ts                 # JSON/Markdown generation
@@ -95,7 +100,7 @@ interface WrappedStats {
   meta: MetaInfo;
   commits: CommitStats;
   pullRequests: PullRequestStats;
-  workItems: WorkItemStats; // Stub - not yet implemented
+  workItems: WorkItemStats; // Resolved/closed work items
   builds: BuildStats; // Stub - not yet implemented
   insights: Insights;
 }

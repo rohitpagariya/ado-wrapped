@@ -24,7 +24,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 │                     Azure DevOps REST API                       │
 │   • Single org/project/repo scope                              │
 │   • PAT auth via Basic header                                   │
-│   • Commits and Pull Requests endpoints                         │
+│   • Commits, Pull Requests, and Work Items endpoints            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,7 +45,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 ### 2. Data Fetching (API Route)
 
 - `/api/stats` endpoint receives config via query params + Bearer token
-- Fetches commits and pull requests in parallel
+- Fetches commits, pull requests, and work items in parallel
 - Uses pagination for large datasets
 - Aggregates into `WrappedStats` response
 
@@ -54,7 +54,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 - Animated card-by-card story experience
 - Keyboard navigation (arrow keys)
 - Touch/swipe support on mobile
-- 10 distinct card types:
+- 15 distinct card types:
   - Welcome
   - Total commits
   - Lines of code
@@ -63,6 +63,11 @@ This document describes the architecture and implementation of Azure DevOps Wrap
   - Language/file types
   - Longest streak
   - Pull requests
+  - Work items total
+  - Work item types
+  - Bugs fixed
+  - Resolution speed
+  - Top tags
   - Insights/personality
   - Finale
 
@@ -97,6 +102,7 @@ src/
 │   │   ├── types.ts          # API response types
 │   │   ├── commits.ts        # Commits fetcher
 │   │   ├── pullRequests.ts   # PRs fetcher
+│   │   ├── workItems.ts      # Work items fetcher (WIQL)
 │   │   ├── aggregator.ts     # Stats computation
 │   │   └── index.ts          # Public exports
 │   ├── export.ts             # JSON/Markdown generation
@@ -147,6 +153,17 @@ src/
 - PRs reviewed
 - Average days to merge
 - Largest PR (by files changed)
+
+### Work Item Stats
+
+- Total resolved/closed count
+- Breakdown by type (Bug, Task, User Story, etc.)
+- Breakdown by priority
+- Bugs fixed with severity breakdown
+- Average resolution time (days)
+- Fastest resolution
+- Top tags used
+- Monthly distribution
 
 ### Insights
 
