@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface MultiSelectOption {
@@ -23,6 +23,8 @@ interface MultiSelectProps {
   selectionLabel?: string;
   /** Label when showing no items in dropdown, e.g., "No projects found" */
   emptyLabel?: string;
+  /** Placeholder text for the search input */
+  searchPlaceholder?: string;
 }
 
 export function MultiSelect({
@@ -36,9 +38,12 @@ export function MultiSelect({
   error = false,
   selectionLabel = "items",
   emptyLabel = "No items found",
+  searchPlaceholder = "Search...",
 }: MultiSelectProps) {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [searchQuery, setSearchQuery] = React.useState("");
   const containerRef = React.useRef<HTMLDivElement>(null);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Close dropdown when clicking outside
   React.useEffect(() => {
@@ -48,12 +53,32 @@ export function MultiSelect({
         !containerRef.current.contains(event.target as Node)
       ) {
         setIsOpen(false);
+        setSearchQuery(""); // Clear search when closing
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Focus search input when dropdown opens
+  React.useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      // Small delay to ensure the dropdown is rendered
+      setTimeout(() => searchInputRef.current?.focus(), 10);
+    }
+  }, [isOpen]);
+
+  // Filter options based on search query
+  const filteredOptions = React.useMemo(() => {
+    if (!searchQuery.trim()) return options;
+    const query = searchQuery.toLowerCase();
+    return options.filter(
+      (option) =>
+        option.label.toLowerCase().includes(query) ||
+        option.description?.toLowerCase().includes(query)
+    );
+  }, [options, searchQuery]);
 
   const toggleOption = (value: string) => {
     if (selected.includes(value)) {
@@ -63,12 +88,21 @@ export function MultiSelect({
     }
   };
 
+  // Select all visible (filtered) options
   const selectAll = () => {
-    onChange(options.map((o) => o.value));
+    const filteredValues = filteredOptions.map((o) => o.value);
+    const newSelected = Array.from(new Set([...selected, ...filteredValues]));
+    onChange(newSelected);
   };
 
+  // Clear all visible (filtered) options, or all if no search
   const clearAll = () => {
-    onChange([]);
+    if (searchQuery.trim()) {
+      const filteredValues = new Set(filteredOptions.map((o) => o.value));
+      onChange(selected.filter((v) => !filteredValues.has(v)));
+    } else {
+      onChange([]);
+    }
   };
 
   const selectedLabels = options
@@ -142,6 +176,34 @@ export function MultiSelect({
       {/* Dropdown menu */}
       {isOpen && !disabled && !loading && (
         <div className="absolute z-50 w-full mt-1 rounded-md border border-slate-600 bg-slate-800 shadow-lg">
+          {/* Search input */}
+          <div className="px-3 py-2 border-b border-slate-700">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={searchPlaceholder}
+                className={cn(
+                  "w-full pl-8 pr-3 py-1.5 text-sm rounded-md border",
+                  "bg-slate-900/50 text-white placeholder:text-slate-500",
+                  "border-slate-600 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                )}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-300"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Select All / Clear All */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-slate-700">
             <button
@@ -150,24 +212,27 @@ export function MultiSelect({
               className="text-xs text-blue-400 hover:text-blue-300"
             >
               Select All
+              {searchQuery.trim() ? ` (${filteredOptions.length})` : ""}
             </button>
             <button
               type="button"
               onClick={clearAll}
               className="text-xs text-slate-400 hover:text-slate-300"
             >
-              Clear All
+              Clear{searchQuery.trim() ? " Visible" : " All"}
             </button>
           </div>
 
           {/* Options list */}
           <div className="max-h-60 overflow-auto py-1">
-            {options.length === 0 ? (
+            {filteredOptions.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-500">
-                {emptyLabel}
+                {searchQuery.trim()
+                  ? `No matches for "${searchQuery}"`
+                  : emptyLabel}
               </div>
             ) : (
-              options.map((option) => {
+              filteredOptions.map((option) => {
                 const isSelected = selected.includes(option.value);
                 return (
                   <button
