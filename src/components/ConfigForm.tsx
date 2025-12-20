@@ -45,16 +45,44 @@ export function ConfigForm({
 }: ConfigFormProps) {
   const { toast } = useToast();
   const [config, setConfig] = useState<WrappedConfig>(() => {
-    // Start with default values only - we no longer load from localStorage
-    // Config is saved to localStorage on submit for potential future use
     const defaults: WrappedConfig = {
       pat: "",
       organization: "",
       projects: [],
       repositories: [],
-      year: new Date().getFullYear() - 1, // Default to last year
+      year: new Date().getFullYear(), // Default to current year
       userEmail: "",
     };
+
+    // Check localStorage for saved config with version handling
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("ado-wrapped-config");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          // Version check: clear old v1 configs (version < 2 or missing)
+          if (!parsed.version || parsed.version < 2) {
+            console.log("🧹 Clearing old v1 config from localStorage");
+            localStorage.removeItem("ado-wrapped-config");
+          } else {
+            // Version 2+: load the saved config
+            console.log("📋 Loading saved v2 config from localStorage");
+            return {
+              ...defaults,
+              organization: parsed.organization || defaults.organization,
+              projects: parsed.projects || defaults.projects,
+              repositories: parsed.repositories || defaults.repositories,
+              year: parsed.year || defaults.year,
+              userEmail: parsed.userEmail || defaults.userEmail,
+              // PAT is never saved/loaded from localStorage
+            };
+          }
+        }
+      } catch (error) {
+        console.error("Failed to parse saved config:", error);
+        localStorage.removeItem("ado-wrapped-config");
+      }
+    }
 
     return defaults;
   });
@@ -273,9 +301,16 @@ export function ConfigForm({
       return;
     }
 
-    // Save to localStorage (excluding PAT for security)
-    const configToSave = { ...config };
-    delete (configToSave as any).pat; // Don't save PAT
+    // Save to localStorage (excluding PAT for security, with version)
+    const configToSave = {
+      organization: config.organization,
+      projects: config.projects,
+      repositories: config.repositories,
+      year: config.year,
+      userEmail: config.userEmail,
+      version: 2, // Version flag for future migrations
+    };
+    console.log("💾 Saving config to localStorage:", configToSave);
     localStorage.setItem("ado-wrapped-config", JSON.stringify(configToSave));
 
     onSubmit(config);
@@ -494,18 +529,28 @@ export function ConfigForm({
               <Label htmlFor="year" className="text-slate-200">
                 Year *
               </Label>
-              <Input
+              <select
                 id="year"
-                type="number"
-                min="2010"
-                max={new Date().getFullYear()}
                 value={config.year}
                 onChange={(e) => handleChange("year", parseInt(e.target.value))}
                 disabled={loading}
-                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
+                className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-slate-900/50 border-slate-600 text-white ${
                   errors.year ? "border-destructive" : ""
                 }`}
-              />
+              >
+                {Array.from({ length: 5 }, (_, i) => {
+                  const year = new Date().getFullYear() - i;
+                  return (
+                    <option
+                      key={year}
+                      value={year}
+                      className="bg-slate-900 text-white"
+                    >
+                      {year}
+                    </option>
+                  );
+                })}
+              </select>
               {errors.year && (
                 <p className="text-sm text-destructive">{errors.year}</p>
               )}
