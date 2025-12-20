@@ -13,9 +13,9 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 │  Frontend (React/App Router)    Backend (API Routes)           │
 │  • Landing page (/)             • /api/stats endpoint           │
 │  • Wrapped dashboard (/wrapped) • /api/projects endpoint        │
-│  • Story-style animations       • Azure DevOps client           │
-│  • Export functionality         • Stats aggregation             │
-│                                                                 │
+│  • Story-style animations       • /api/repositories endpoint    │
+│  • Export functionality         • /api/config endpoint          │
+│                                 • Azure DevOps client           │
 │  Shared: TypeScript types, utility functions                    │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -25,6 +25,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 │   • Multi-project support (aggregate across projects)          │
 │   • PAT auth via Basic header                                   │
 │   • Commits, Pull Requests, and Work Items endpoints            │
+│   • Projects and Repositories discovery                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -54,7 +55,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 - Animated card-by-card story experience
 - Keyboard navigation (arrow keys)
 - Touch/swipe support on mobile
-- 15 distinct card types:
+- 16 distinct card types:
   - Welcome
   - Total commits
   - Lines of code
@@ -68,6 +69,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
   - Bugs fixed
   - Resolution speed
   - Top tags
+  - Top areas
   - Insights/personality
   - Finale
 
@@ -83,15 +85,25 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 ```
 src/
 ├── app/                      # Next.js App Router (pages & API routes)
+│   └── api/
+│       ├── config/           # Server config status endpoint
+│       ├── projects/         # List organization projects
+│       ├── repositories/     # List project repositories
+│       └── stats/            # Main stats endpoint
 ├── components/               # React components (UI, charts, stats)
-├── lib/azure-devops/         # Azure DevOps API client & aggregation
-│   ├── ConfigForm.tsx        # User configuration input
-│   ├── StoryViewer.tsx       # Animated story container
+│   ├── ui/                   # shadcn/ui components (button, card, etc.)
+│   ├── ConfigForm.tsx        # Multi-project/repo selection form
+│   ├── StoryViewer.tsx       # Animated story container (16 cards)
 │   ├── StatsCard.tsx         # Reusable stat display
 │   ├── CommitHeatmap.tsx     # GitHub-style calendar
 │   ├── LanguageChart.tsx     # Pie chart for file types
 │   ├── TimeDistributionChart.tsx  # Bar charts
 │   ├── PRStats.tsx           # Pull request metrics
+│   ├── WorkItemStats.tsx     # Work item metrics
+│   ├── WorkItemTypeChart.tsx # Pie chart by work item type
+│   ├── BugStats.tsx          # Bug severity breakdown
+│   ├── TopTagsChart.tsx      # Tag cloud and chart
+│   ├── TopAreasChart.tsx     # Area path breakdown
 │   ├── InsightsCard.tsx      # Personality insights
 │   ├── ExportButton.tsx      # Download functionality
 │   ├── ErrorBoundary.tsx     # Error handling
@@ -100,11 +112,15 @@ src/
 │   ├── azure-devops/
 │   │   ├── client.ts         # API client with auth
 │   │   ├── types.ts          # API response types
+│   │   ├── cache.ts          # Disk-based response caching
 │   │   ├── commits.ts        # Commits fetcher
 │   │   ├── pullRequests.ts   # PRs fetcher
 │   │   ├── workItems.ts      # Work items fetcher (WIQL)
+│   │   ├── projects.ts       # Projects fetcher
+│   │   ├── repositories.ts   # Repositories fetcher
 │   │   ├── aggregator.ts     # Stats computation
 │   │   └── index.ts          # Public exports
+│   ├── constants.ts          # App-wide constants
 │   ├── export.ts             # JSON/Markdown generation
 │   ├── config.ts             # Config utilities
 │   └── utils.ts              # General utilities
@@ -132,7 +148,7 @@ src/
 
 - `Authorization: Bearer <PAT>`
 
-**Response:** `WrappedStats` JSON object
+**Response:** `ClientWrappedStats` JSON object (filtered for smaller payload)
 
 ### Projects Endpoint: `GET /api/projects`
 
@@ -159,6 +175,54 @@ Fetches all projects in an organization that the user has access to.
       "state": "wellFormed"
     }
   ]
+}
+```
+
+### Repositories Endpoint: `GET /api/repositories`
+
+Fetches all repositories for the selected projects.
+
+**Query Parameters:**
+
+- `organization` (required)
+- `projects` (required) - comma-separated list of project names
+
+**Headers:**
+
+- `Authorization: Bearer <PAT>`
+
+**Response:**
+
+```json
+{
+  "count": 10,
+  "repositories": [
+    {
+      "id": "...",
+      "name": "RepoName",
+      "project": "ProjectName",
+      "defaultBranch": "refs/heads/main"
+    }
+  ]
+}
+```
+
+### Config Endpoint: `GET /api/config`
+
+Returns server-side configuration status (for pre-populating form from `.env`).
+
+**Response:**
+
+```json
+{
+  "hasConfig": true,
+  "config": {
+    "organization": "myorg",
+    "projects": ["Project1"],
+    "repositories": [{ "project": "Project1", "repository": "repo1" }],
+    "year": 2024
+  },
+  "errors": []
 }
 ```
 
@@ -191,6 +255,7 @@ Fetches all projects in an organization that the user has access to.
 - Average resolution time (days)
 - Fastest resolution
 - Top tags used
+- Top areas (by area path)
 - Monthly distribution
 
 ### Insights
@@ -215,4 +280,4 @@ Fetches all projects in an organization that the user has access to.
 
 - **Deployment**: See [DEPLOYMENT.md](DEPLOYMENT.md) for Vercel, Azure, and Docker instructions
 - **Development**: See README.md for available npm scripts
-- **Roadmap**: See [tasks.md](tasks.md) for planned enhancements
+- **Roadmap**: See [ROADMAP.md](ROADMAP.md) for planned enhancements

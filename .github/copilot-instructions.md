@@ -35,12 +35,28 @@ ado-wrapped/
 │   │   ├── wrapped/
 │   │   │   └── page.tsx              # Stats dashboard page
 │   │   └── api/
+│   │       ├── config/
+│   │       │   └── route.ts          # GET /api/config - Server config status
+│   │       ├── projects/
+│   │       │   └── route.ts          # GET /api/projects - List org projects
+│   │       ├── repositories/
+│   │       │   └── route.ts          # GET /api/repositories - List repos
 │   │       └── stats/
-│   │           └── route.ts          # GET /api/stats endpoint
+│   │           └── route.ts          # GET /api/stats - Main stats endpoint
 │   ├── components/
 │   │   ├── ui/                       # shadcn/ui components
-│   │   ├── ConfigForm.tsx            # PAT, org, project, repo input form
-│   │   ├── StoryViewer.tsx           # Swipeable story container
+│   │   │   ├── button.tsx
+│   │   │   ├── card.tsx
+│   │   │   ├── input.tsx
+│   │   │   ├── label.tsx
+│   │   │   ├── multi-select.tsx      # Searchable multi-select dropdown
+│   │   │   ├── progress.tsx
+│   │   │   ├── skeleton.tsx
+│   │   │   ├── tabs.tsx
+│   │   │   ├── toast.tsx
+│   │   │   └── toaster.tsx
+│   │   ├── ConfigForm.tsx            # Multi-project/repo selection form
+│   │   ├── StoryViewer.tsx           # Swipeable story container (16 cards)
 │   │   ├── StatsCard.tsx             # Individual stat display card
 │   │   ├── CommitHeatmap.tsx         # GitHub-style contribution calendar
 │   │   ├── LanguageChart.tsx         # File type pie chart
@@ -50,6 +66,7 @@ ado-wrapped/
 │   │   ├── WorkItemTypeChart.tsx     # Pie chart by work item type
 │   │   ├── BugStats.tsx              # Bug severity breakdown
 │   │   ├── TopTagsChart.tsx          # Tag cloud and chart
+│   │   ├── TopAreasChart.tsx         # Area path breakdown chart
 │   │   ├── BuildStats.tsx            # Build pipeline stats (stub)
 │   │   ├── InsightsCard.tsx          # Developer personality insights
 │   │   ├── ExportButton.tsx          # Download JSON/Markdown
@@ -59,11 +76,15 @@ ado-wrapped/
 │   │   ├── azure-devops/             # Azure DevOps API integration
 │   │   │   ├── client.ts             # Base API client with auth
 │   │   │   ├── types.ts              # API response types
+│   │   │   ├── cache.ts              # Disk-based response caching
 │   │   │   ├── commits.ts            # Fetch commits with pagination
 │   │   │   ├── pullRequests.ts       # Fetch PRs with filtering
 │   │   │   ├── workItems.ts          # Fetch work items via WIQL
+│   │   │   ├── projects.ts           # Fetch organization projects
+│   │   │   ├── repositories.ts       # Fetch repository lists
 │   │   │   ├── aggregator.ts         # Compute stats from raw data
 │   │   │   └── index.ts              # Public exports
+│   │   ├── constants.ts              # App-wide constants and types
 │   │   ├── export.ts                 # JSON/Markdown generation
 │   │   ├── config.ts                 # Configuration utilities
 │   │   └── utils.ts                  # General utilities (cn helper)
@@ -71,6 +92,8 @@ ado-wrapped/
 │   │   └── use-toast.ts              # Toast notification hook
 │   └── types/
 │       └── index.ts                  # Application TypeScript types
+├── .ado-cache/                       # Disk cache (git-ignored)
+├── cache-cli.ts                      # Cache management CLI
 ├── public/                           # Static assets
 ├── next.config.js                    # Next.js configuration
 ├── tailwind.config.ts                # Tailwind CSS configuration
@@ -197,11 +220,12 @@ const headers = {
 ### API Endpoints Used
 
 - **Projects**: `/_apis/projects` (list all projects in org)
+- **Repositories**: `/{project}/_apis/git/repositories` (list repos in project)
 - **Commits**: `/{project}/_apis/git/repositories/{repo}/commits`
 - **Pull Requests**: `/{project}/_apis/git/pullrequests`
 - **Work Items (WIQL)**: `/{project}/_apis/wit/wiql`
-- **Work Items (Details)**: `/{project}/_apis/wit/workitems`
-- **API Version**: 7.0
+- **Work Items (Details)**: `/_apis/wit/workitemsbatch`
+- **API Version**: 7.0 (defined in `src/lib/constants.ts`)
 
 ### Error Handling
 
@@ -240,9 +264,15 @@ The client handles common errors:
 
 The API route is at `src/app/api/stats/route.ts`:
 
-- Accepts query params: organization, projects (comma-separated), repository, year, userEmail
-- Returns `WrappedStats` JSON
+- Accepts query params: organization, projects (comma-separated), repositories (JSON array), year, userEmail
+- Returns `ClientWrappedStats` JSON (filtered subset of `WrappedStats` for smaller payload)
 - PAT passed via Authorization header
+
+### Other API Routes
+
+- **`/api/config`**: Returns server-side configuration status (from `.env`)
+- **`/api/projects`**: Lists all projects in an organization
+- **`/api/repositories`**: Lists repositories for selected projects
 
 ## AI Agent Guidelines
 
@@ -310,6 +340,7 @@ return NextResponse.json(
 ### Performance Considerations
 
 - Charts are heavy - consider dynamic imports for new visualizations
-- API responses are cached by default (24hr TTL) - disable only when debugging
+- API responses are cached on disk when `ADO_CACHE_ENABLED=true` (disabled by default)
 - Use `useCallback` for event handlers passed to child components
 - Use `useMemo` for expensive computations in components
+- Stats are filtered to `ClientWrappedStats` on the server to reduce payload size

@@ -11,9 +11,11 @@ Azure DevOps Wrapped generates personalized "year in review" summaries for Azure
 **Key Features:**
 
 - 📊 Commit and PR statistics with interactive charts
-- ✅ Work items resolved (bugs, tasks, user stories)
+- ✅ Work items resolved (bugs, tasks, user stories) with severity and priority breakdown
 - 🔥 Streak tracking and time-of-day patterns
 - 🌙 Developer personality insights (Night Owl, Early Bird, etc.)
+- 🏷️ Top tags and area path analysis
+- 📦 Multi-project and multi-repository support
 - 📥 Export to JSON or Markdown
 - 🔒 Privacy-first: your PAT never leaves your session
 
@@ -78,11 +80,13 @@ If `.env` is missing or incomplete:
 
 1. **Enter your details** on the landing page:
 
-   - Organization, Project, Repository
-   - Year to analyze
-   - Your PAT (stored only in browser session)
+   - Organization name and PAT token
+   - Select one or more projects (auto-fetched from Azure DevOps)
+   - Select repositories from those projects
+   - Choose the year to analyze
+   - Optionally filter by your email address
 
-2. **View your Wrapped** — swipe or use arrow keys to navigate through stats cards
+2. **View your Wrapped** — swipe or use arrow keys to navigate through 16 stats cards
 
 3. **Export** — download your stats as JSON or Markdown
 
@@ -188,7 +192,7 @@ If the app gets stuck on "Fetching data" or you encounter errors, comprehensive 
 4. Run `npm run type-check` to ensure no TypeScript errors
 5. Submit a Pull Request
 
-See [tasks.md](tasks.md) for planned enhancements.
+See [ROADMAP.md](ROADMAP.md) for planned enhancements.
 
 ---
 
@@ -207,7 +211,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed instructions on deploying to:
 | Document                                                           | Description                             |
 | ------------------------------------------------------------------ | --------------------------------------- |
 | [plan.md](plan.md)                                                 | Architecture and implementation details |
-| [tasks.md](tasks.md)                                               | Future enhancements and roadmap         |
+| [ROADMAP.md](ROADMAP.md)                                           | Future enhancements and roadmap         |
 | [DEPLOYMENT.md](DEPLOYMENT.md)                                     | Deployment guides                       |
 | [.github/copilot-instructions.md](.github/copilot-instructions.md) | Coding guidelines                       |
 

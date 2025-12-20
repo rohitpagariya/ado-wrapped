@@ -1,6 +1,6 @@
-# Azure DevOps Wrapped - Future Enhancements
+# Azure DevOps Wrapped - Roadmap
 
-This document tracks potential future improvements for the Azure DevOps Wrapped application.
+This document tracks potential future enhancements for the Azure DevOps Wrapped application.
 
 ---
 
@@ -12,22 +12,6 @@ This document tracks potential future improvements for the Azure DevOps Wrapped 
 ---
 
 ## Azure DevOps API Extensions
-
-### Work Items Integration
-
-- **Priority**: 🔴 High
-- **Effort**: M
-- **Description**: Fetch and display work item statistics using WIQL queries
-- **API Endpoint**: `/_apis/wit/wiql`
-- **Features to add**:
-  - Work items created/resolved count
-  - Breakdown by type (Bug, User Story, Task, etc.)
-  - Top tags used
-- **Files to modify**:
-  - Create `src/lib/azure-devops/workItems.ts`
-  - Update `src/lib/azure-devops/aggregator.ts`
-  - Create `src/components/WorkItemStats.tsx`
-  - Add card to `StoryViewer.tsx`
 
 ### Build Pipeline Statistics
 
@@ -44,30 +28,6 @@ This document tracks potential future improvements for the Azure DevOps Wrapped 
   - Create `src/lib/azure-devops/builds.ts`
   - Update `src/lib/azure-devops/aggregator.ts`
   - Update `src/components/BuildStats.tsx` (currently a stub)
-
----
-
-## Multi-Repository Support
-
-### Select Multiple Repositories
-
-- **Priority**: 🟡 Medium
-- **Effort**: L
-- **Description**: Allow users to analyze multiple repositories at once
-- **Changes needed**:
-  - Update `ConfigForm` to accept multiple repos
-  - Aggregate stats across repositories
-  - Show per-repo and combined views
-
-### Repository Discovery
-
-- **Priority**: 🟢 Low
-- **Effort**: M
-- **Description**: Fetch list of available repositories from Azure DevOps
-- **API Endpoint**: `/{project}/_apis/git/repositories`
-- **Changes needed**:
-  - Add repository list fetch
-  - Convert repo input to searchable dropdown
 
 ---
 
@@ -181,17 +141,7 @@ This document tracks potential future improvements for the Azure DevOps Wrapped 
 
 ---
 
-## Performance & Caching
-
-### API Response Caching
-
-- **Priority**: 🟡 Medium
-- **Effort**: M
-- **Description**: Cache Azure DevOps API responses
-- **Implementation**:
-  - Server-side caching with TTL
-  - IndexedDB for client-side caching
-  - Stale-while-revalidate pattern
+## Performance
 
 ### Incremental Data Loading
 
@@ -262,4 +212,4 @@ To work on any of these enhancements:
 3. Follow the patterns in existing code
 4. Submit a PR with tests where applicable
 
-See [plan.md](./plan.md) for architecture overview and [.github/copilot-instructions.md](.github/copilot-instructions.md) for coding guidelines.
+See [plan.md](plan.md) for architecture overview and [.github/copilot-instructions.md](.github/copilot-instructions.md) for coding guidelines.
