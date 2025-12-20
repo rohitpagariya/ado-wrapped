@@ -1,14 +1,31 @@
+// Project-Repository mapping (a repository belongs to exactly one project)
+export interface ProjectRepository {
+  project: string; // Project name, e.g., "Teams"
+  repository: string; // Repository name, e.g., "teams-frontend"
+  repositoryId?: string; // Optional: repository ID for API calls
+}
+
 // Configuration input for the application
 export interface WrappedConfig {
   pat: string; // Personal Access Token
   organization: string; // e.g., "microsoft"
   projects: string[]; // Array of project names, e.g., ["Teams", "Office"]
-  repository: string; // e.g., "teams-frontend"
+  repositories: ProjectRepository[]; // Array of project-repo combos
   year: number; // e.g., 2024
   userEmail?: string; // Optional: filter by specific user
 }
 
-// Complete stats response
+// Legacy config format for migration (single repository string)
+export interface LegacyWrappedConfig {
+  pat: string;
+  organization: string;
+  projects: string[];
+  repository: string; // Old format: single repository name
+  year: number;
+  userEmail?: string;
+}
+
+// Complete stats response (server-side, includes all computed fields)
 export interface WrappedStats {
   meta: MetaInfo;
   commits: CommitStats;
@@ -18,11 +35,52 @@ export interface WrappedStats {
   insights: Insights;
 }
 
+// Client-side stats (filtered to only include fields used by UI)
+// This is what gets sent from the API to the browser
+export interface ClientWrappedStats {
+  meta: MetaInfo;
+  commits: ClientCommitStats;
+  pullRequests: ClientPullRequestStats;
+  workItems: WorkItemStats;
+  insights: Insights;
+}
+
+// Client-side commit stats (excludes unused fields: edits, byMonth, firstCommitDate, lastCommitDate, topCommitMessages)
+export interface ClientCommitStats {
+  total: number;
+  additions: number;
+  deletions: number;
+  byDayOfWeek: Record<string, number>;
+  byHour: Record<number, number>;
+  longestStreak: number;
+  commitDates: string[];
+}
+
+// Client-side PR stats (excludes unused fields: abandoned, byHour, totalComments)
+export interface ClientPullRequestStats {
+  created: number;
+  merged: number;
+  reviewed: number;
+  avgDaysToMerge: number;
+  avgDaysToMergeFormatted: string;
+  largestPR: {
+    id: number;
+    title: string;
+    filesChanged: number;
+  } | null;
+  byMonth: Record<string, number>;
+  byDayOfWeek: Record<string, number>;
+  firstPRDate: string;
+  lastPRDate: string;
+  fastestMerge: { id: number; title: string; hours: number } | null;
+  slowestMerge: { id: number; title: string; days: number } | null;
+}
+
 // Metadata about the stats
 export interface MetaInfo {
   organization: string;
   projects: string[]; // Array of project names
-  repository: string;
+  repositories: string[]; // Array of repository names
   year: number;
   generatedAt: string;
   userEmail?: string;

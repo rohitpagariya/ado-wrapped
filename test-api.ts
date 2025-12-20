@@ -34,18 +34,24 @@ async function testAPIIntegration() {
   const appConfig = loadAndValidateConfig();
   printConfig(appConfig);
 
+  // Use first project for single-project API calls
+  const project = appConfig.projects[0];
+
+  // Build repositories array from legacy single repository config
+  const repositories = appConfig.projects.map((p) => ({
+    project: p,
+    repository: appConfig.repository,
+  }));
+
   // Convert to WrappedConfig format
   const config: WrappedConfig = {
     organization: appConfig.organization,
     projects: appConfig.projects,
-    repository: appConfig.repository,
+    repositories: repositories,
     pat: appConfig.pat,
     year: appConfig.year,
     userEmail: appConfig.userEmail,
   };
-
-  // Use first project for single-project API calls
-  const project = config.projects[0];
 
   try {
     // Define date range
@@ -54,12 +60,15 @@ async function testAPIIntegration() {
 
     console.log("📥 Fetching data from Azure DevOps...\n");
 
+    // Use first project-repo combo for single-repo test
+    const firstRepo = config.repositories[0];
+
     // Fetch commits (only from master branch)
     console.log("1️⃣  Fetching commits from master branch...");
     const commits = await fetchCommits({
       organization: config.organization,
-      project: project,
-      repository: config.repository,
+      project: firstRepo.project,
+      repository: firstRepo.repository,
       pat: config.pat,
       fromDate,
       toDate,
@@ -71,8 +80,8 @@ async function testAPIIntegration() {
     console.log("2️⃣  Fetching pull requests merged to master...");
     const pullRequests = await fetchPullRequests({
       organization: config.organization,
-      project: project,
-      repository: config.repository,
+      project: firstRepo.project,
+      repository: firstRepo.repository,
       pat: config.pat,
       fromDate,
       toDate,
@@ -101,7 +110,7 @@ async function testAPIIntegration() {
       config: {
         organization: config.organization,
         projects: config.projects,
-        repository: config.repository,
+        repositories: config.repositories.map((r) => r.repository),
         year: config.year,
         userEmail: config.userEmail,
       },

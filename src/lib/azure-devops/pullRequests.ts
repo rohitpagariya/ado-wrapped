@@ -81,27 +81,35 @@ export async function fetchPullRequests(
 
     console.log(`✅ Successfully resolved user ID: ${creatorId}`);
 
-    // Fetch completed PRs to master branch created by the specific user
+    // Fetch completed PRs to main branches (master, main, dev) created by the specific user
     // Uses server-side filtering by user ID (required for efficiency)
-    console.log(
-      `📝 Fetching completed PRs to master branch by user ${userEmail} (ID: ${creatorId})...`
-    );
-    const createdPRs = await fetchPRsByStatus(
-      client,
-      repositoryId,
-      fromDate,
-      toDate,
-      "completed", // Only completed PRs
-      "refs/heads/master", // Only PRs targeting master
-      creatorId // Server-side filter by creator ID (REQUIRED)
-    );
-    console.log(
-      `✅ Found ${createdPRs.length} completed PRs to master by this user`
-    );
+    // Try multiple target branches in order of preference
+    const branchesToTry = ["master", "main", "dev"];
 
-    allPRs.push(...createdPRs);
+    for (const branch of branchesToTry) {
+      console.log(
+        `📝 Fetching completed PRs to ${branch} branch by user ${userEmail} (ID: ${creatorId})...`
+      );
+      try {
+        const createdPRs = await fetchPRsByStatus(
+          client,
+          repositoryId,
+          fromDate,
+          toDate,
+          "completed", // Only completed PRs
+          `refs/heads/${branch}`, // Target branch
+          creatorId // Server-side filter by creator ID (REQUIRED)
+        );
+        console.log(
+          `✅ Found ${createdPRs.length} completed PRs to ${branch} by this user`
+        );
+        allPRs.push(...createdPRs);
+      } catch (err) {
+        console.log(`⚠️ Could not fetch PRs for branch '${branch}': ${err}`);
+      }
+    }
 
-    // Skip reviewed PRs fetching - only interested in user's own PRs to master
+    // Skip reviewed PRs fetching - only interested in user's own PRs to main branches
     // This dramatically reduces data transfer
 
     // Filter by date range (Azure DevOps doesn't support date filtering directly)

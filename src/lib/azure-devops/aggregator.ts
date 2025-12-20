@@ -39,8 +39,8 @@ export interface AggregatorInput {
   workItems: WorkItem[];
   config: {
     organization: string;
-    projects: string[]; // Changed from project to projects array
-    repository: string;
+    projects: string[]; // Array of project names
+    repositories: string[]; // Array of repository names
     year: number;
     userEmail?: string;
   };
@@ -54,6 +54,7 @@ export function aggregateStats(input: AggregatorInput): WrappedStats {
 
   console.log(`\n📊 Aggregating stats for ${config.year}...`);
   console.log(`   Projects: ${config.projects.join(", ")}`);
+  console.log(`   Repositories: ${config.repositories.join(", ")}`);
   console.log(`   Commits: ${commits.length}`);
   console.log(`   Pull Requests: ${pullRequests.length}`);
   console.log(`   Work Items: ${workItems.length}`);
@@ -62,7 +63,7 @@ export function aggregateStats(input: AggregatorInput): WrappedStats {
     meta: {
       organization: config.organization,
       projects: config.projects,
-      repository: config.repository,
+      repositories: config.repositories,
       year: config.year,
       generatedAt: new Date().toISOString(),
       userEmail: config.userEmail,

@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import type { CommitStats } from "@/types";
+import type { ClientCommitStats } from "@/types";
 
 interface CommitHeatmapProps {
-  commits: CommitStats;
+  commits: ClientCommitStats;
   year: number;
 }
 

@@ -1,9 +1,9 @@
-import type { WrappedStats } from "@/types";
+import type { ClientWrappedStats } from "@/types";
 
 /**
  * Export stats as JSON file
  */
-export function exportToJSON(stats: WrappedStats): void {
+export function exportToJSON(stats: ClientWrappedStats): void {
   const json = JSON.stringify(stats, null, 2);
   const blob = new Blob([json], { type: "application/json" });
   downloadBlob(blob, `ado-wrapped-${stats.meta.year}.json`);
@@ -12,7 +12,7 @@ export function exportToJSON(stats: WrappedStats): void {
 /**
  * Export stats as Markdown file
  */
-export function exportToMarkdown(stats: WrappedStats): void {
+export function exportToMarkdown(stats: ClientWrappedStats): void {
   const markdown = generateMarkdown(stats);
   const blob = new Blob([markdown], { type: "text/markdown" });
   downloadBlob(blob, `ado-wrapped-${stats.meta.year}.md`);
@@ -21,7 +21,7 @@ export function exportToMarkdown(stats: WrappedStats): void {
 /**
  * Generate Markdown content from stats
  */
-function generateMarkdown(stats: WrappedStats): string {
+function generateMarkdown(stats: ClientWrappedStats): string {
   const { meta, commits, pullRequests, insights } = stats;
 
   const projectsDisplay =
@@ -29,13 +29,20 @@ function generateMarkdown(stats: WrappedStats): string {
       ? meta.projects[0]
       : `${meta.projects.length} projects (${meta.projects.join(", ")})`;
 
+  const reposDisplay =
+    meta.repositories.length === 1
+      ? meta.repositories[0]
+      : `${meta.repositories.length} repositories (${meta.repositories.join(
+          ", "
+        )})`;
+
   return `# Azure DevOps Wrapped ${meta.year}
 
 ## 📊 Overview
 
 - **Organization:** ${meta.organization}
 - **Projects:** ${projectsDisplay}
-- **Repository:** ${meta.repository}
+- **Repositories:** ${reposDisplay}
 ${meta.userEmail ? `- **User:** ${meta.userEmail}` : ""}
 - **Generated:** ${new Date(meta.generatedAt).toLocaleDateString()}
 
@@ -45,30 +52,8 @@ ${meta.userEmail ? `- **User:** ${meta.userEmail}` : ""}
 
 - **Total Commits:** ${commits.total.toLocaleString()}
 - **Lines Added:** ${commits.additions.toLocaleString()}
-- **Lines Modified:** ${commits.edits.toLocaleString()}
 - **Lines Deleted:** ${commits.deletions.toLocaleString()}
 - **Longest Streak:** ${commits.longestStreak} days 🔥
-${
-  commits.firstCommitDate
-    ? `- **First Commit:** ${new Date(
-        commits.firstCommitDate
-      ).toLocaleDateString()}`
-    : ""
-}
-${
-  commits.lastCommitDate
-    ? `- **Last Commit:** ${new Date(
-        commits.lastCommitDate
-      ).toLocaleDateString()}`
-    : ""
-}
-
-### Commits by Month
-
-${Object.entries(commits.byMonth || {})
-  .sort(([a], [b]) => parseInt(a) - parseInt(b))
-  .map(([month, count]) => `- Month ${month}: ${count}`)
-  .join("\n")}
 
 ### Commits by Day of Week
 
@@ -89,7 +74,6 @@ ${Object.entries(commits.byHour || {})
 
 - **Created:** ${pullRequests.created}
 - **Merged:** ${pullRequests.merged}
-- **Abandoned:** ${pullRequests.abandoned || 0}
 - **Reviewed:** ${pullRequests.reviewed}
 ${
   pullRequests.avgDaysToMergeFormatted

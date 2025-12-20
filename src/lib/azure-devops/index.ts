@@ -28,6 +28,12 @@ export type { FetchWorkItemsOptions } from "./workItems";
 
 export { fetchProjects } from "./projects";
 
+export {
+  fetchRepositoriesForProject,
+  fetchRepositoriesForProjects,
+} from "./repositories";
+export type { RepositoryWithProject } from "./repositories";
+
 export { aggregateStats } from "./aggregator";
 export type { AggregatorInput } from "./aggregator";
 

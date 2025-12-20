@@ -10,11 +10,11 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import type { CommitStats } from "@/types";
+import type { ClientCommitStats } from "@/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface TimeDistributionChartProps {
-  commits: CommitStats;
+  commits: ClientCommitStats;
 }
 
 export function TimeDistributionChart({ commits }: TimeDistributionChartProps) {

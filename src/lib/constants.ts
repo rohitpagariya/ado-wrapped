@@ -66,6 +66,7 @@ export const STORY_CARD_TYPES = [
   "bugs-fixed",
   "resolution-speed",
   "top-tags",
+  "top-areas",
   "insights",
   "finale",
 ] as const;

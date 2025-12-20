@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { exportToJSON, exportToMarkdown } from "@/lib/export";
-import { migrateConfigToProjectsArray } from "@/lib/config-utils";
-import type { WrappedStats } from "@/types";
+import { migrateConfig } from "@/lib/config-utils";
+import type { ClientWrappedStats } from "@/types";
 import type { WrappedConfig } from "@/components/ConfigForm";
 import { Download, FileJson, FileText, Check, Loader2 } from "lucide-react";
 
@@ -83,7 +83,7 @@ function formatDate(isoString: string): string {
 export default function WrappedPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const [stats, setStats] = useState<WrappedStats | null>(null);
+  const [stats, setStats] = useState<ClientWrappedStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [loadingStep, setLoadingStep] = useState<string>("Initializing...");
@@ -117,8 +117,8 @@ export default function WrappedPage() {
         }
 
         const rawConfig = JSON.parse(configStr);
-        // Use centralized migration for legacy 'project' field
-        const config: WrappedConfig = migrateConfigToProjectsArray(rawConfig);
+        // Use centralized migration for legacy formats
+        const config: WrappedConfig = migrateConfig(rawConfig);
 
         // Validate that we have required fields including PAT
         if (
@@ -126,7 +126,8 @@ export default function WrappedPage() {
           !config.organization ||
           !config.projects ||
           config.projects.length === 0 ||
-          !config.repository
+          !config.repositories ||
+          config.repositories.length === 0
         ) {
           console.error("Missing required config fields");
           router.push("/");
@@ -136,11 +137,13 @@ export default function WrappedPage() {
         await updateStep("Preparing API request...", 20);
 
         // Build API URL with query parameters
-        // Use 'projects' param with comma-separated values
+        // Use 'repositories' param as JSON array of {project, repository} objects
+        const repositoriesJson = JSON.stringify(config.repositories);
+
         const params = new URLSearchParams({
           organization: config.organization,
           projects: config.projects.join(","),
-          repository: config.repository,
+          repositories: repositoriesJson,
           year: config.year.toString(),
         });
 
@@ -156,11 +159,9 @@ export default function WrappedPage() {
         const url = `/api/stats?${params.toString()}`;
 
         await updateStep(
-          `Fetching data from ${config.projects.length} project(s)...`,
+          `Fetching data from ${config.repositories.length} repository(ies) across ${config.projects.length} project(s)...`,
           40
         );
-
-        console.log(`Fetching stats from ${url}`);
 
         const response = await fetch(url, { headers });
 
@@ -168,12 +169,13 @@ export default function WrappedPage() {
 
         if (!response.ok) {
           const errorData = await response.json();
+          console.error("❌ API Error:", errorData);
           throw new Error(errorData.error || "Failed to fetch stats");
         }
 
         await updateStep("Analyzing your activity...", 80);
 
-        const data: WrappedStats = await response.json();
+        const data: ClientWrappedStats = await response.json();
 
         await updateStep("Generating your Wrapped...", 90);
 
@@ -301,11 +303,19 @@ export default function WrappedPage() {
               {stats.meta.projects.length === 1
                 ? stats.meta.projects[0]
                 : `${stats.meta.projects.length} projects`}{" "}
-              / {stats.meta.repository}
+              /{" "}
+              {stats.meta.repositories.length === 1
+                ? stats.meta.repositories[0]
+                : `${stats.meta.repositories.length} repos`}
             </p>
             {stats.meta.projects.length > 1 && (
               <p className="text-slate-500 mt-1 text-xs">
-                {stats.meta.projects.join(", ")}
+                Projects: {stats.meta.projects.join(", ")}
+              </p>
+            )}
+            {stats.meta.repositories.length > 1 && (
+              <p className="text-slate-500 mt-1 text-xs">
+                Repos: {stats.meta.repositories.join(", ")}
               </p>
             )}
           </div>
@@ -366,36 +376,23 @@ export default function WrappedPage() {
               </div>
 
               {/* File Change Stats */}
-              {(stats.commits.additions > 0 ||
-                stats.commits.edits > 0 ||
-                stats.commits.deletions > 0) && (
+              {(stats.commits.additions > 0 || stats.commits.deletions > 0) && (
                 <>
                   <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-green-600/20 border border-emerald-500/30 backdrop-blur-sm">
                     <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-emerald-400">
                       +{stats.commits.additions.toLocaleString()}
                     </h3>
                     <p className="text-emerald-300 text-sm sm:text-base">
-                      Files Added
+                      Lines Added
                     </p>
                   </div>
-
-                  {stats.commits.edits > 0 && (
-                    <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-amber-500/20 to-yellow-600/20 border border-amber-500/30 backdrop-blur-sm">
-                      <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-amber-400">
-                        ~{stats.commits.edits.toLocaleString()}
-                      </h3>
-                      <p className="text-amber-300 text-sm sm:text-base">
-                        Files Edited
-                      </p>
-                    </div>
-                  )}
 
                   <div className="p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-rose-500/20 to-red-600/20 border border-rose-500/30 backdrop-blur-sm">
                     <h3 className="text-2xl sm:text-3xl font-bold mb-1 text-rose-400">
                       -{stats.commits.deletions.toLocaleString()}
                     </h3>
                     <p className="text-rose-300 text-sm sm:text-base">
-                      Files Deleted
+                      Lines Deleted
                     </p>
                   </div>
                 </>
@@ -955,6 +952,52 @@ export default function WrappedPage() {
                 </div>
               </div>
             )}
+
+            {/* Top Areas - Separate Card */}
+            {stats.workItems.topAreas &&
+              stats.workItems.topAreas.length > 0 && (
+                <div className="mt-4 p-4 sm:p-6 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700/50 backdrop-blur-sm">
+                  <h3 className="text-lg font-semibold mb-4 text-white">
+                    📁 Top Areas
+                  </h3>
+                  {(() => {
+                    const areaEntries = stats.workItems.topAreas.slice(0, 5);
+                    const maxCount = Math.max(
+                      ...areaEntries.map((a) => a.count),
+                      1
+                    );
+
+                    return (
+                      <div className="space-y-3">
+                        {areaEntries.map(({ area, count }) => {
+                          const percentage = Math.round(
+                            (count / maxCount) * 100
+                          );
+                          return (
+                            <div key={area} className="flex items-center gap-3">
+                              <span
+                                className="text-sm text-slate-300 w-28 truncate"
+                                title={area}
+                              >
+                                {area}
+                              </span>
+                              <div className="flex-1 h-4 bg-slate-700/50 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all"
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium text-slate-300 w-8 text-right">
+                                {count}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
 
             {/* Work Items by Month Chart */}
             {Object.keys(stats.workItems.byMonth || {}).length > 0 && (

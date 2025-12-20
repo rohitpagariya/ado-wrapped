@@ -6,6 +6,52 @@ import { aggregateStats } from "@/lib/azure-devops/aggregator";
 import { loadConfig, validateConfig } from "@/lib/config";
 import { createClient } from "@/lib/azure-devops/client";
 import { GitCommit, GitPullRequest, WorkItem } from "@/lib/azure-devops/types";
+import type {
+  ProjectRepository,
+  WrappedStats,
+  ClientWrappedStats,
+} from "@/types";
+
+/**
+ * Filter server-side stats to only include fields used by the client UI.
+ * This reduces the JSON payload sent to the browser.
+ */
+function filterStatsForClient(stats: WrappedStats): ClientWrappedStats {
+  return {
+    meta: stats.meta,
+    commits: {
+      total: stats.commits.total,
+      additions: stats.commits.additions,
+      deletions: stats.commits.deletions,
+      byDayOfWeek: stats.commits.byDayOfWeek,
+      byHour: stats.commits.byHour,
+      longestStreak: stats.commits.longestStreak,
+      commitDates: stats.commits.commitDates,
+    },
+    pullRequests: {
+      created: stats.pullRequests.created,
+      merged: stats.pullRequests.merged,
+      reviewed: stats.pullRequests.reviewed,
+      avgDaysToMerge: stats.pullRequests.avgDaysToMerge,
+      avgDaysToMergeFormatted: stats.pullRequests.avgDaysToMergeFormatted,
+      largestPR: stats.pullRequests.largestPR,
+      byMonth: stats.pullRequests.byMonth,
+      byDayOfWeek: stats.pullRequests.byDayOfWeek,
+      firstPRDate: stats.pullRequests.firstPRDate,
+      lastPRDate: stats.pullRequests.lastPRDate,
+      fastestMerge: stats.pullRequests.fastestMerge,
+      slowestMerge: stats.pullRequests.slowestMerge,
+    },
+    workItems: stats.workItems,
+    insights: stats.insights,
+  };
+}
+
+// Type for project-repository combo from request
+interface ProjectRepoCombo {
+  project: string;
+  repository: string;
+}
 
 export async function GET(request: NextRequest) {
   const requestId = Date.now();
@@ -22,7 +68,10 @@ export async function GET(request: NextRequest) {
     // Support both 'projects' (comma-separated) and legacy 'project' param
     let projectsParam = searchParams.get("projects");
     let legacyProject = searchParams.get("project");
-    let repository = searchParams.get("repository");
+    // New: 'repositories' as JSON array of {project, repository} objects
+    let repositoriesParam = searchParams.get("repositories");
+    // Legacy: single 'repository' param (for backwards compatibility)
+    let legacyRepository = searchParams.get("repository");
     let year = searchParams.get("year");
     let userEmail = searchParams.get("userEmail");
 
@@ -37,9 +86,55 @@ export async function GET(request: NextRequest) {
       projects = [legacyProject];
     }
 
+    // Parse repositories array from JSON or legacy single repository
+    let projectRepos: ProjectRepoCombo[] = [];
+    if (repositoriesParam) {
+      try {
+        // New format: JSON array of {project, repository} objects
+        console.log(
+          `[${requestId}] 📦 Raw repositories param: ${repositoriesParam.substring(
+            0,
+            200
+          )}...`
+        );
+        projectRepos = JSON.parse(repositoriesParam);
+        console.log(
+          `[${requestId}] 📦 Parsed ${projectRepos.length} project-repo combinations:`,
+          projectRepos
+        );
+      } catch (e) {
+        console.error(
+          `[${requestId}] ❌ Failed to parse repositories JSON:`,
+          e
+        );
+        console.error(`[${requestId}] ❌ Raw value: ${repositoriesParam}`);
+        return NextResponse.json(
+          {
+            error: "Invalid repositories format",
+            details:
+              "repositories must be a JSON array of {project, repository} objects",
+          },
+          { status: 400 }
+        );
+      }
+    } else if (legacyRepository && projects.length > 0) {
+      // Legacy format: single repository applied to all projects (old behavior)
+      // This tries every repo in every project - less efficient but backwards compatible
+      projectRepos = projects.map((p) => ({
+        project: p,
+        repository: legacyRepository,
+      }));
+      console.log(
+        `[${requestId}] 📦 Legacy mode: trying ${legacyRepository} in ${projects.length} project(s)`
+      );
+    }
+
     // If no parameters provided, try to use server-side config from .env
     const useServerConfig =
-      !organization && projects.length === 0 && !repository && !year;
+      !organization &&
+      projects.length === 0 &&
+      projectRepos.length === 0 &&
+      !year;
     if (useServerConfig) {
       console.log(`[${requestId}] 📁 Loading server-side config from .env`);
       const serverConfig = loadConfig();
@@ -49,7 +144,13 @@ export async function GET(request: NextRequest) {
         pat = pat || serverConfig.pat;
         organization = serverConfig.organization;
         projects = serverConfig.projects;
-        repository = serverConfig.repository;
+        // Legacy server config uses single repository - apply to all projects
+        if (serverConfig.repository) {
+          projectRepos = projects.map((p) => ({
+            project: p,
+            repository: serverConfig.repository,
+          }));
+        }
         year = serverConfig.year.toString();
         userEmail = userEmail || serverConfig.userEmail || null;
         console.log(`[${requestId}] ✅ Using server config`);
@@ -61,24 +162,29 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Derive unique projects from projectRepos if not explicitly provided
+    if (projects.length === 0 && projectRepos.length > 0) {
+      projects = Array.from(new Set(projectRepos.map((pr) => pr.project)));
+    }
+
+    // Derive unique repositories for logging
+    const uniqueRepos = Array.from(
+      new Set(projectRepos.map((pr) => pr.repository))
+    );
+
     console.log(`[${requestId}] 🔑 PAT present: ${!!pat}`);
     console.log(`[${requestId}] 📋 Parameters:`, {
       organization,
       projects,
-      repository,
+      repositories: uniqueRepos,
+      projectRepoCombos: projectRepos.length,
       year,
       userEmail: userEmail || "(none)",
       source: useServerConfig ? "server-config" : "request-params",
     });
 
     // Validate required parameters
-    if (
-      !pat ||
-      !organization ||
-      projects.length === 0 ||
-      !repository ||
-      !year
-    ) {
+    if (!pat || !organization || projectRepos.length === 0 || !year) {
       console.error(`[${requestId}] ❌ Missing required parameters`);
       return NextResponse.json(
         {
@@ -86,8 +192,7 @@ export async function GET(request: NextRequest) {
           required: [
             "pat (Authorization header or .env)",
             "organization",
-            "projects (comma-separated)",
-            "repository",
+            "repositories (JSON array of {project, repository}) or legacy: projects + repository",
             "year",
           ],
         },
@@ -99,9 +204,7 @@ export async function GET(request: NextRequest) {
     const endDate = `${year}-12-31`;
 
     console.log(
-      `[${requestId}] 📊 Fetching stats for ${organization}/${projects.join(
-        ", "
-      )}/${repository} (${year})`
+      `[${requestId}] 📊 Fetching stats for ${organization} - ${projectRepos.length} project-repo combo(s) (${year})`
     );
     console.log(`[${requestId}] 📅 Date range: ${startDate} to ${endDate}`);
 
@@ -110,26 +213,28 @@ export async function GET(request: NextRequest) {
     // For local development, enable caching in .env for faster iteration.
 
     console.log(
-      `[${requestId}] 🔄 Starting parallel data fetch across ${projects.length} project(s)...`
+      `[${requestId}] 🔄 Starting parallel data fetch for ${projectRepos.length} project-repo combo(s)...`
     );
     const fetchStartTime = Date.now();
 
     // Create client for work items API
     const client = createClient({ organization, pat });
 
-    // Fetch data from all projects in parallel
-    // Each project fetches commits, PRs, and work items concurrently
-    // Errors for individual projects are silently ignored - we only fail if ALL projects fail
-    // Use Sets for efficient deduplication during merge (items may appear in multiple projects)
+    // Fetch data from each project-repository combination
+    // KEY OPTIMIZATION: Each repo is only fetched from its correct project
+    // (no more trying every repo in every project)
     const seenCommitIds = new Set<string>();
     const seenPRIds = new Set<string>();
     const seenWorkItemIds = new Set<string>();
     const allCommits: GitCommit[] = [];
     const allPullRequests: GitPullRequest[] = [];
     const allWorkItems: WorkItem[] = [];
-    const projectErrors: { project: string; error: string }[] = [];
+    const comboErrors: { project: string; repo: string; error: string }[] = [];
 
-    // Helper to try fetching commits from master, then main if master fails
+    // Track which projects we've already fetched work items from (work items are per-project, not per-repo)
+    const projectsWithWorkItems = new Set<string>();
+
+    // Helper to try fetching commits from master, then main, then dev if previous branches fail
     const fetchCommitsWithBranchFallback = async (
       org: string,
       proj: string,
@@ -139,76 +244,93 @@ export async function GET(request: NextRequest) {
       to: string,
       email?: string
     ): Promise<GitCommit[]> => {
-      // Try master first
-      try {
-        const commits = await fetchCommits({
-          organization: org,
-          project: proj,
-          repository: repo,
-          pat: patToken,
-          fromDate: from,
-          toDate: to,
-          userEmail: email,
-          branch: "master",
-        });
-        if (commits.length > 0) {
-          return commits;
+      const branchesToTry = ["master", "main", "dev"];
+
+      for (let i = 0; i < branchesToTry.length; i++) {
+        const branch = branchesToTry[i];
+        try {
+          const commits = await fetchCommits({
+            organization: org,
+            project: proj,
+            repository: repo,
+            pat: patToken,
+            fromDate: from,
+            toDate: to,
+            userEmail: email,
+            branch: branch,
+          });
+          if (commits.length > 0) {
+            console.log(
+              `✅ Found ${commits.length} commits on branch: ${branch}`
+            );
+            return commits;
+          }
+        } catch {
+          // This branch doesn't exist or failed, try next
+          console.log(
+            `⚠️ Branch '${branch}' not found or empty, trying next...`
+          );
         }
-      } catch {
-        // master branch doesn't exist, try main
       }
-      // Try main branch
-      return fetchCommits({
-        organization: org,
-        project: proj,
-        repository: repo,
-        pat: patToken,
-        fromDate: from,
-        toDate: to,
-        userEmail: email,
-        branch: "main",
-      });
+
+      // All branches failed, return empty array
+      console.log(`⚠️ No commits found on any branch (master, main, dev)`);
+      return [];
     };
 
-    // Process all projects in parallel with error handling per project
-    const projectResults = await Promise.all(
-      projects.map(async (project) => {
-        console.log(`[${requestId}] 📂 Fetching data for project: ${project}`);
+    // Process all project-repo combinations in parallel
+    // Each combo only fetches from its specific project (not all projects)
+    const comboResults = await Promise.all(
+      projectRepos.map(async ({ project, repository }) => {
+        console.log(
+          `[${requestId}] 📂 Fetching data for ${project}/${repository}`
+        );
 
         try {
-          // Fetch commits, PRs, and work items in parallel for this project
-          // Each fetch is wrapped in its own try-catch to handle partial failures
-          const [commitsResult, pullRequestsResult, workItemsResult] =
-            await Promise.all([
-              fetchCommitsWithBranchFallback(
-                organization!,
-                project,
-                repository!,
-                pat!,
-                startDate,
-                endDate,
-                userEmail || undefined
-              ).catch((err) => {
-                console.warn(
-                  `[${requestId}] ⚠️ ${project}: Failed to fetch commits: ${err.message}`
-                );
-                return [] as GitCommit[];
-              }),
-              fetchPullRequests({
-                organization: organization!,
-                project,
-                repository: repository!,
-                pat: pat!,
-                fromDate: startDate,
-                toDate: endDate,
-                userEmail: userEmail || undefined,
-                includeReviewed: true,
-              }).catch((err) => {
-                console.warn(
-                  `[${requestId}] ⚠️ ${project}: Failed to fetch PRs: ${err.message}`
-                );
-                return [] as GitPullRequest[];
-              }),
+          // Determine if we need to fetch work items for this project
+          // (work items are per-project, so only fetch once per project)
+          const shouldFetchWorkItems = !projectsWithWorkItems.has(project);
+          if (shouldFetchWorkItems) {
+            projectsWithWorkItems.add(project);
+          }
+
+          // Fetch commits and PRs for this specific project-repo combo
+          // Work items only fetched once per project (they're not repo-specific)
+          const fetchPromises: Promise<any>[] = [
+            fetchCommitsWithBranchFallback(
+              organization!,
+              project,
+              repository,
+              pat!,
+              startDate,
+              endDate,
+              userEmail || undefined
+            ).catch((err) => {
+              console.warn(
+                `[${requestId}] ⚠️ ${project}/${repository}: Failed to fetch commits: ${err.message}`
+              );
+              return [] as GitCommit[];
+            }),
+            fetchPullRequests({
+              organization: organization!,
+              project,
+              repository,
+              pat: pat!,
+              fromDate: startDate,
+              toDate: endDate,
+              userEmail: userEmail || undefined,
+              includeReviewed: true,
+            }).catch((err) => {
+              console.warn(
+                `[${requestId}] ⚠️ ${project}/${repository}: Failed to fetch PRs: ${err.message}`
+              );
+              return [] as GitPullRequest[];
+            }),
+          ];
+
+          // Only add work items fetch if this is the first repo from this project
+          if (shouldFetchWorkItems) {
+            fetchPromises.push(
               fetchWorkItems(client, {
                 project,
                 year: parseInt(year!),
@@ -218,28 +340,43 @@ export async function GET(request: NextRequest) {
                   `[${requestId}] ⚠️ ${project}: Failed to fetch work items: ${err.message}`
                 );
                 return [] as WorkItem[];
-              }),
-            ]);
+              })
+            );
+          }
+
+          const results = await Promise.all(fetchPromises);
+          const commitsResult = results[0] as GitCommit[];
+          const pullRequestsResult = results[1] as GitPullRequest[];
+          const workItemsResult = shouldFetchWorkItems
+            ? (results[2] as WorkItem[])
+            : [];
 
           console.log(
-            `[${requestId}] 📈 ${project}: Commits: ${commitsResult.length}, PRs: ${pullRequestsResult.length}, Work Items: ${workItemsResult.length}`
+            `[${requestId}] 📈 ${project}/${repository}: Commits: ${
+              commitsResult.length
+            }, PRs: ${pullRequestsResult.length}${
+              shouldFetchWorkItems
+                ? `, Work Items: ${workItemsResult.length}`
+                : ""
+            }`
           );
 
           return {
             project,
+            repository,
             commits: commitsResult,
             pullRequests: pullRequestsResult,
             workItems: workItemsResult,
             success: true,
           };
         } catch (err: any) {
-          // Catch any unexpected errors for this project
           console.warn(
-            `[${requestId}] ⚠️ ${project}: Project fetch failed: ${err.message}`
+            `[${requestId}] ⚠️ ${project}/${repository}: Fetch failed: ${err.message}`
           );
-          projectErrors.push({ project, error: err.message });
+          comboErrors.push({ project, repo: repository, error: err.message });
           return {
             project,
+            repository,
             commits: [] as GitCommit[],
             pullRequests: [] as GitPullRequest[],
             workItems: [] as WorkItem[],
@@ -249,9 +386,8 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    // Merge results from all projects with deduplication during merge
-    // This is more memory-efficient than collecting all then deduplicating
-    for (const result of projectResults) {
+    // Merge results with deduplication
+    for (const result of comboResults) {
       for (const commit of result.commits) {
         if (!seenCommitIds.has(commit.commitId)) {
           seenCommitIds.add(commit.commitId);
@@ -275,30 +411,32 @@ export async function GET(request: NextRequest) {
     }
 
     // Check if we got any data at all
-    const successfulProjects = projectResults.filter((r) => r.success).length;
+    const successfulCombos = comboResults.filter((r) => r.success).length;
     const hasAnyData =
       allCommits.length > 0 ||
       allPullRequests.length > 0 ||
       allWorkItems.length > 0;
 
-    // Log warnings about failed projects but continue if we have data
-    if (projectErrors.length > 0) {
+    // Log warnings about failed combos but continue if we have data
+    if (comboErrors.length > 0) {
       console.warn(
-        `[${requestId}] ⚠️ ${projectErrors.length} project(s) had errors:`,
-        projectErrors
+        `[${requestId}] ⚠️ ${comboErrors.length} project-repo combo(s) had errors:`,
+        comboErrors
       );
     }
 
-    // Only fail if ALL projects failed AND we have no data
-    if (successfulProjects === 0 && !hasAnyData) {
-      console.error(`[${requestId}] ❌ All projects failed to return data`);
+    // Only fail if ALL combos failed AND we have no data
+    if (successfulCombos === 0 && !hasAnyData) {
+      console.error(
+        `[${requestId}] ❌ All project-repo combos failed to return data`
+      );
       return NextResponse.json(
         {
-          error: "No data found in any of the selected projects",
+          error: "No data found in any of the selected repositories",
           details:
-            projectErrors.length > 0
-              ? `Errors: ${projectErrors
-                  .map((e) => `${e.project}: ${e.error}`)
+            comboErrors.length > 0
+              ? `Errors: ${comboErrors
+                  .map((e) => `${e.project}/${e.repo}: ${e.error}`)
                   .join("; ")}`
               : "No commits, PRs, or work items found for the specified criteria",
         },
@@ -323,7 +461,7 @@ export async function GET(request: NextRequest) {
       config: {
         organization,
         projects,
-        repository,
+        repositories: uniqueRepos,
         year: parseInt(year),
         userEmail: userEmail || undefined,
       },
@@ -331,13 +469,16 @@ export async function GET(request: NextRequest) {
 
     const aggregateDuration = Date.now() - aggregateStartTime;
     console.log(`[${requestId}] ✅ Stats aggregated in ${aggregateDuration}ms`);
+
+    // Filter to only include fields used by the client UI
+    const clientStats = filterStatsForClient(stats);
     console.log(
       `[${requestId}] 🎉 Request completed successfully in ${
         Date.now() - requestId
       }ms`
     );
 
-    return NextResponse.json(stats);
+    return NextResponse.json(clientStats);
   } catch (error: any) {
     console.error(`[${requestId}] ❌ Stats API error:`, {
       message: error.message,

@@ -37,7 +37,7 @@ This document describes the architecture and implementation of Azure DevOps Wrap
 ### 1. Configuration (Landing Page)
 
 - User enters Azure DevOps details via `ConfigForm` component
-- Required: organization, projects (one or more), repository, year, PAT
+- Required: organization, projects (one or more), repositories (one or more per project), year, PAT
 - Optional: user email filter
 - Config stored in `sessionStorage` (never server-side)
 - Navigates to `/wrapped` on submit

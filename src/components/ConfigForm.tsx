@@ -14,8 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 import { useToast } from "@/hooks/use-toast";
-import { migrateConfigToProjectsArray } from "@/lib/config-utils";
-import type { WrappedConfig } from "@/types";
+import { migrateConfig } from "@/lib/config-utils";
+import type { WrappedConfig, ProjectRepository } from "@/types";
 
 // Re-export for backward compatibility
 export type { WrappedConfig } from "@/types";
@@ -32,6 +32,13 @@ interface ProjectInfo {
   description?: string;
 }
 
+interface RepositoryInfo {
+  id: string;
+  name: string;
+  project: string; // Parent project name
+  defaultBranch?: string;
+}
+
 export function ConfigForm({
   onSubmit,
   loading = false,
@@ -44,7 +51,7 @@ export function ConfigForm({
       pat: "",
       organization: "",
       projects: [],
-      repository: "",
+      repositories: [],
       year: new Date().getFullYear() - 1, // Default to last year
       userEmail: "",
     };
@@ -56,8 +63,8 @@ export function ConfigForm({
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          // Use centralized migration for legacy 'project' field
-          const migrated = migrateConfigToProjectsArray(parsed);
+          // Use centralized migration for legacy formats
+          const migrated = migrateConfig(parsed);
           return { ...defaults, ...migrated };
         } catch (e) {
           console.error("Failed to parse saved config:", e);
@@ -72,6 +79,13 @@ export function ConfigForm({
   const [availableProjects, setAvailableProjects] = useState<ProjectInfo[]>([]);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projectsError, setProjectsError] = useState<string | null>(null);
+
+  // State for available repositories from API
+  const [availableRepositories, setAvailableRepositories] = useState<
+    RepositoryInfo[]
+  >([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [reposError, setReposError] = useState<string | null>(null);
 
   // Apply initialConfig from server (env variables) when provided
   // This runs after mount, allowing server config to override localStorage
@@ -127,6 +141,52 @@ export function ConfigForm({
     []
   );
 
+  // Fetch repositories when projects change
+  const fetchRepositories = useCallback(
+    async (organization: string, pat: string, projects: string[]) => {
+      if (!organization.trim() || !pat.trim() || projects.length === 0) {
+        setAvailableRepositories([]);
+        return;
+      }
+
+      setReposLoading(true);
+      setReposError(null);
+
+      try {
+        const response = await fetch(
+          `/api/repositories?organization=${encodeURIComponent(
+            organization
+          )}&projects=${encodeURIComponent(projects.join(","))}`,
+          {
+            headers: {
+              Authorization: `Bearer ${pat}`,
+            },
+          }
+        );
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || "Failed to fetch repositories");
+        }
+
+        const data = await response.json();
+        setAvailableRepositories(data.repositories || []);
+        console.log(
+          `📦 Loaded ${data.repositories?.length || 0} repositories from ${
+            projects.length
+          } project(s)`
+        );
+      } catch (error: any) {
+        console.error("Failed to fetch repositories:", error);
+        setReposError(error.message);
+        setAvailableRepositories([]);
+      } finally {
+        setReposLoading(false);
+      }
+    },
+    []
+  );
+
   // Debounced fetch when org or PAT changes
   // Only fetch when PAT looks complete (Azure DevOps PATs are 52+ chars)
   // and organization has no spaces (likely complete)
@@ -148,6 +208,45 @@ export function ConfigForm({
     return () => clearTimeout(timeoutId);
   }, [config.organization, config.pat, fetchProjects]);
 
+  // Fetch repositories when projects change
+  useEffect(() => {
+    if (config.projects.length === 0) {
+      setAvailableRepositories([]);
+      // Clear selected repositories that no longer belong to selected projects
+      if (config.repositories.length > 0) {
+        setConfig((prev) => ({ ...prev, repositories: [] }));
+      }
+      return;
+    }
+
+    const orgLooksComplete =
+      config.organization.trim().length > 0 &&
+      !config.organization.includes(" ");
+    const patLooksComplete = config.pat.length >= MIN_PAT_LENGTH;
+
+    if (!orgLooksComplete || !patLooksComplete) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      fetchRepositories(config.organization, config.pat, config.projects);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [config.organization, config.pat, config.projects, fetchRepositories]);
+
+  // When projects change, filter out repositories that no longer belong to selected projects
+  useEffect(() => {
+    if (config.repositories.length > 0) {
+      const validRepos = config.repositories.filter((repo) =>
+        config.projects.includes(repo.project)
+      );
+      if (validRepos.length !== config.repositories.length) {
+        setConfig((prev) => ({ ...prev, repositories: validRepos }));
+      }
+    }
+  }, [config.projects]);
+
   const [errors, setErrors] = useState<
     Partial<Record<keyof WrappedConfig, string>>
   >({});
@@ -164,8 +263,8 @@ export function ConfigForm({
     if (!config.projects || config.projects.length === 0) {
       newErrors.projects = "At least one project must be selected";
     }
-    if (!config.repository.trim()) {
-      newErrors.repository = "Repository name is required";
+    if (!config.repositories || config.repositories.length === 0) {
+      newErrors.repositories = "At least one repository must be selected";
     }
     if (
       !config.year ||
@@ -201,7 +300,7 @@ export function ConfigForm({
 
   const handleChange = (
     field: keyof WrappedConfig,
-    value: string | number | string[]
+    value: string | number | string[] | ProjectRepository[]
   ) => {
     setConfig((prev) => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -210,12 +309,37 @@ export function ConfigForm({
     }
   };
 
+  // Handle repository selection - convert selected keys to ProjectRepository array
+  const handleRepositoryChange = (selectedKeys: string[]) => {
+    const repositories: ProjectRepository[] = selectedKeys.map((key) => {
+      // Key format is "project/repo"
+      const [project, ...repoParts] = key.split("/");
+      const repository = repoParts.join("/"); // Handle repos with / in name
+      return { project, repository };
+    });
+    handleChange("repositories", repositories);
+  };
+
   // Convert projects to MultiSelect options
   const projectOptions: MultiSelectOption[] = availableProjects.map((p) => ({
     value: p.name,
     label: p.name,
     description: p.description,
   }));
+
+  // Convert repositories to MultiSelect options with project prefix
+  const repositoryOptions: MultiSelectOption[] = availableRepositories.map(
+    (r) => ({
+      value: `${r.project}/${r.name}`, // Unique key: project/repo
+      label: r.name,
+      description: `Project: ${r.project}`,
+    })
+  );
+
+  // Get selected repository keys from config.repositories
+  const selectedRepoKeys = config.repositories.map(
+    (r) => `${r.project}/${r.repository}`
+  );
 
   return (
     <Card className="w-full max-w-2xl bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
@@ -257,46 +381,23 @@ export function ConfigForm({
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="organization" className="text-slate-200">
-                Organization *
-              </Label>
-              <Input
-                id="organization"
-                placeholder="e.g., microsoft"
-                value={config.organization}
-                onChange={(e) => handleChange("organization", e.target.value)}
-                disabled={loading}
-                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
-                  errors.organization ? "border-destructive" : ""
-                }`}
-              />
-              {errors.organization && (
-                <p className="text-sm text-destructive">
-                  {errors.organization}
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="repository" className="text-slate-200">
-                Repository *
-              </Label>
-              <Input
-                id="repository"
-                placeholder="e.g., vscode"
-                value={config.repository}
-                onChange={(e) => handleChange("repository", e.target.value)}
-                disabled={loading}
-                className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
-                  errors.repository ? "border-destructive" : ""
-                }`}
-              />
-              {errors.repository && (
-                <p className="text-sm text-destructive">{errors.repository}</p>
-              )}
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="organization" className="text-slate-200">
+              Organization *
+            </Label>
+            <Input
+              id="organization"
+              placeholder="e.g., microsoft"
+              value={config.organization}
+              onChange={(e) => handleChange("organization", e.target.value)}
+              disabled={loading}
+              className={`bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 ${
+                errors.organization ? "border-destructive" : ""
+              }`}
+            />
+            {errors.organization && (
+              <p className="text-sm text-destructive">{errors.organization}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -331,6 +432,43 @@ export function ConfigForm({
             )}
             <p className="text-xs text-slate-500">
               Select one or more projects to include in your Wrapped.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="repositories" className="text-slate-200">
+              Repositories *{" "}
+              {config.repositories.length > 0 && (
+                <span className="text-slate-400 font-normal">
+                  ({config.repositories.length} selected)
+                </span>
+              )}
+            </Label>
+            <MultiSelect
+              options={repositoryOptions}
+              selected={selectedRepoKeys}
+              onChange={handleRepositoryChange}
+              placeholder={
+                config.projects.length === 0
+                  ? "Select projects first..."
+                  : reposLoading
+                  ? "Loading repositories..."
+                  : "Select repositories..."
+              }
+              disabled={loading || config.projects.length === 0}
+              loading={reposLoading}
+              error={!!errors.repositories}
+            />
+            {errors.repositories && (
+              <p className="text-sm text-destructive">{errors.repositories}</p>
+            )}
+            {reposError && (
+              <p className="text-sm text-amber-500">
+                Could not load repositories: {reposError}
+              </p>
+            )}
+            <p className="text-xs text-slate-500">
+              Select one or more repositories to analyze.
             </p>
           </div>
 
@@ -379,7 +517,7 @@ export function ConfigForm({
           <Button
             type="submit"
             className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white border-0"
-            disabled={loading}
+            disabled={loading || config.repositories.length === 0}
           >
             {loading ? "Generating..." : "Generate My Wrapped"}
           </Button>

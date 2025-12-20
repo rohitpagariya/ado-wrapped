@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
-import type { WrappedStats } from "@/types";
+import type { ClientWrappedStats } from "@/types";
 import type { StoryCardType } from "@/lib/constants";
 import { StatsCard } from "@/components/StatsCard";
 import { CommitHeatmap } from "@/components/CommitHeatmap";
@@ -18,14 +18,15 @@ import { WorkItemStatsDisplay } from "@/components/WorkItemStats";
 import { WorkItemTypeChart } from "@/components/WorkItemTypeChart";
 import { BugStats } from "@/components/BugStats";
 import { TopTagsChart } from "@/components/TopTagsChart";
+import { TopAreasChart } from "@/components/TopAreasChart";
 
 interface StoryCard {
   type: StoryCardType;
-  data: WrappedStats;
+  data: ClientWrappedStats;
 }
 
 interface StoryViewerProps {
-  stats: WrappedStats;
+  stats: ClientWrappedStats;
 }
 
 export function StoryViewer({ stats }: StoryViewerProps) {
@@ -48,6 +49,7 @@ export function StoryViewer({ stats }: StoryViewerProps) {
     { type: "bugs-fixed", data: stats },
     { type: "resolution-speed", data: stats },
     { type: "top-tags", data: stats },
+    { type: "top-areas", data: stats },
     { type: "insights", data: stats },
     { type: "finale", data: stats },
   ];
@@ -206,7 +208,7 @@ export function StoryViewer({ stats }: StoryViewerProps) {
   );
 }
 
-function renderCard(card: { type: string; data: WrappedStats }) {
+function renderCard(card: { type: string; data: ClientWrappedStats }) {
   switch (card.type) {
     case "welcome":
       return (
@@ -225,7 +227,14 @@ function renderCard(card: { type: string; data: WrappedStats }) {
             </p>
             {card.data.meta.projects.length > 1 && (
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                {card.data.meta.projects.join(", ")}
+                Projects: {card.data.meta.projects.join(", ")}
+              </p>
+            )}
+            {card.data.meta.repositories.length > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {card.data.meta.repositories.length === 1
+                  ? `Repository: ${card.data.meta.repositories[0]}`
+                  : `Repositories: ${card.data.meta.repositories.join(", ")}`}
               </p>
             )}
             <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -405,6 +414,13 @@ function renderCard(card: { type: string; data: WrappedStats }) {
       return (
         <StatsCard title="Your Top Tags" variant="white">
           <TopTagsChart topTags={card.data.workItems.topTags} />
+        </StatsCard>
+      );
+
+    case "top-areas":
+      return (
+        <StatsCard title="Work Item Areas" variant="white">
+          <TopAreasChart topAreas={card.data.workItems.topAreas} />
         </StatsCard>
       );
 

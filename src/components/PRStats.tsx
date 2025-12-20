@@ -1,11 +1,11 @@
 "use client";
 
 import { motion } from "framer-motion";
-import type { PullRequestStats } from "@/types";
+import type { ClientPullRequestStats } from "@/types";
 import { GitPullRequest, GitMerge, MessageSquare, Clock } from "lucide-react";
 
 interface PRStatsProps {
-  pullRequests: PullRequestStats;
+  pullRequests: ClientPullRequestStats;
 }
 
 export function PRStats({ pullRequests }: PRStatsProps) {

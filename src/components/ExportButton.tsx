@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, FileJson, FileText } from "lucide-react";
 import { exportToJSON, exportToMarkdown } from "@/lib/export";
-import type { WrappedStats } from "@/types";
+import type { ClientWrappedStats } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface ExportButtonProps {
-  stats: WrappedStats;
+  stats: ClientWrappedStats;
 }
 
 export function ExportButton({ stats }: ExportButtonProps) {

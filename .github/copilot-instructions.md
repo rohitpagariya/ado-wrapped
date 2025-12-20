@@ -83,11 +83,16 @@ ado-wrapped/
 ### Configuration Input
 
 ```typescript
+interface ProjectRepository {
+  project: string; // Project name, e.g., "Teams"
+  repository: string; // Repository name, e.g., "teams-frontend"
+}
+
 interface WrappedConfig {
   pat: string; // Personal Access Token
   organization: string; // e.g., "microsoft"
   projects: string[]; // Array of project names, e.g., ["Teams", "Office"]
-  repository: string; // e.g., "teams-frontend"
+  repositories: ProjectRepository[]; // Array of project-repo combos
   year: number; // e.g., 2024
   userEmail?: string; // Optional: filter by specific user
 }
