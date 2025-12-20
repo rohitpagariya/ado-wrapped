@@ -35,31 +35,31 @@ This document outlines the end-to-end design for optimizing Azure DevOps data fe
 
 These APIs use `app.vssps.visualstudio.com` as the base URL and don't require knowing the organization upfront.
 
-| API | Endpoint | Purpose | Response |
-|-----|----------|---------|----------|
-| **Profile** | `GET https://app.vssps.visualstudio.com/_apis/profile/profiles/me` | Get current user info | `{ id, displayName, emailAddress, publicAlias }` |
+| API          | Endpoint                                                                  | Purpose                                | Response                                              |
+| ------------ | ------------------------------------------------------------------------- | -------------------------------------- | ----------------------------------------------------- |
+| **Profile**  | `GET https://app.vssps.visualstudio.com/_apis/profile/profiles/me`        | Get current user info                  | `{ id, displayName, emailAddress, publicAlias }`      |
 | **Accounts** | `GET https://app.vssps.visualstudio.com/_apis/accounts?memberId={userId}` | List all organizations user belongs to | `{ value: [{ accountId, accountName, accountUri }] }` |
 
 **Authentication**: Same Basic auth pattern with PAT.
 
 ### 1.2 Organization-Level APIs
 
-| API | Endpoint | Purpose | Key Filters |
-|-----|----------|---------|-------------|
-| **Projects** | `GET https://dev.azure.com/{org}/_apis/projects` | List all projects in org | `stateFilter=wellFormed`, `$top=500` |
+| API                      | Endpoint                                          | Purpose                              | Key Filters                                     |
+| ------------------------ | ------------------------------------------------- | ------------------------------------ | ----------------------------------------------- |
+| **Projects**             | `GET https://dev.azure.com/{org}/_apis/projects`  | List all projects in org             | `stateFilter=wellFormed`, `$top=500`            |
 | **WIQL (Cross-Project)** | `POST https://dev.azure.com/{org}/_apis/wit/wiql` | Query work items across ALL projects | WIQL query with `EVER [AssignedTo]`, date range |
 
 ### 1.3 Project-Level APIs
 
-| API | Endpoint | Purpose | Key Filters |
-|-----|----------|---------|-------------|
+| API               | Endpoint                                                           | Purpose                                 | Key Filters                                                                                     |
+| ----------------- | ------------------------------------------------------------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | **Pull Requests** | `GET https://dev.azure.com/{org}/{project}/_apis/git/pullrequests` | Get all PRs across ALL repos in project | `searchCriteria.creatorId`, `searchCriteria.status`, `searchCriteria.targetRefName`, date range |
-| **Repositories** | `GET https://dev.azure.com/{org}/{project}/_apis/git/repositories` | List all repos in project | None |
+| **Repositories**  | `GET https://dev.azure.com/{org}/{project}/_apis/git/repositories` | List all repos in project               | None                                                                                            |
 
 ### 1.4 Repository-Level APIs (Current Approach - Expensive)
 
-| API | Endpoint | Purpose |
-|-----|----------|---------|
+| API         | Endpoint                                                                          | Purpose                   |
+| ----------- | --------------------------------------------------------------------------------- | ------------------------- |
 | **Commits** | `GET https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/commits` | Commits for a single repo |
 
 ### 1.5 PR API Response Details
@@ -69,23 +69,24 @@ The project-level Pull Requests API returns detailed information including targe
 ```typescript
 interface GitPullRequest {
   pullRequestId: number;
-  status: 'active' | 'completed' | 'abandoned';
-  createdBy: { id: string; displayName: string; };
+  status: "active" | "completed" | "abandoned";
+  createdBy: { id: string; displayName: string };
   creationDate: string;
   closedDate?: string;
   title: string;
-  sourceRefName: string;    // e.g., "refs/heads/feature/my-feature"
-  targetRefName: string;    // e.g., "refs/heads/main" - THE MERGE TARGET
+  sourceRefName: string; // e.g., "refs/heads/feature/my-feature"
+  targetRefName: string; // e.g., "refs/heads/main" - THE MERGE TARGET
   repository?: {
     id: string;
     name: string;
-    project: { name: string; };
+    project: { name: string };
   };
   // ... other fields
 }
 ```
 
 **Key Fields for Discovery**:
+
 - `targetRefName`: Which branch the PR was merged into (e.g., `refs/heads/main`)
 - `repository.id` / `repository.name`: Which repo this PR belongs to
 - `createdBy.id`: Who created the PR (for filtering)
@@ -97,15 +98,15 @@ interface GitPullRequest {
 
 ### 2.1 Current vs Optimized Call Count
 
-| Resource | Current Approach | Optimized Approach | Savings |
-|----------|------------------|-------------------|---------|
-| User Profile | N/A (manual input) | 1 call | New |
-| Organizations | N/A (manual input) | 1 call | New |
-| Projects | 1 per org | 1 per org | Same |
-| **Work Items** | 1 per project (30) | **1 per org (3)** | **90%** |
-| **PRs (discovery)** | 1 per repo (500) | **2 per project (60)** | **88%** |
-| Commits | 1 per repo (500) | 1 per active repo (~50) | **90%** |
-| **Total** | ~1,060 calls | ~115 calls | **~89%** |
+| Resource            | Current Approach   | Optimized Approach      | Savings  |
+| ------------------- | ------------------ | ----------------------- | -------- |
+| User Profile        | N/A (manual input) | 1 call                  | New      |
+| Organizations       | N/A (manual input) | 1 call                  | New      |
+| Projects            | 1 per org          | 1 per org               | Same     |
+| **Work Items**      | 1 per project (30) | **1 per org (3)**       | **90%**  |
+| **PRs (discovery)** | 1 per repo (500)   | **2 per project (60)**  | **88%**  |
+| Commits             | 1 per repo (500)   | 1 per active repo (~50) | **90%**  |
+| **Total**           | ~1,060 calls       | ~115 calls              | **~89%** |
 
 ### 2.2 Discovery Flow
 
@@ -189,7 +190,7 @@ interface OrganizationDiscovery {
 
 interface ProjectDiscovery {
   name: string;
-  activeRepositories: RepositoryInfo[];  // Repos with user PRs
+  activeRepositories: RepositoryInfo[]; // Repos with user PRs
 }
 
 interface RepositoryInfo {
@@ -200,11 +201,14 @@ interface RepositoryInfo {
 
 // New functions
 async function fetchUserProfile(pat: string): Promise<UserProfile>;
-async function fetchOrganizations(pat: string, userId: string): Promise<Organization[]>;
+async function fetchOrganizations(
+  pat: string,
+  userId: string
+): Promise<Organization[]>;
 async function discoverActiveRepositories(
-  pat: string, 
-  organization: string, 
-  project: string, 
+  pat: string,
+  organization: string,
+  project: string,
   userId: string,
   year: number
 ): Promise<RepositoryInfo[]>;
@@ -219,18 +223,18 @@ Add to `src/lib/azure-devops/client.ts`:
 // New: Global client for app.vssps.visualstudio.com (no org required)
 export class GlobalAzureDevOpsClient {
   private client: AxiosInstance;
-  
+
   constructor(pat: string) {
     this.client = axios.create({
-      baseURL: 'https://app.vssps.visualstudio.com',
+      baseURL: "https://app.vssps.visualstudio.com",
       headers: {
-        Authorization: `Basic ${Buffer.from(`:${pat}`).toString('base64')}`,
-        'Content-Type': 'application/json',
+        Authorization: `Basic ${Buffer.from(`:${pat}`).toString("base64")}`,
+        "Content-Type": "application/json",
       },
       timeout: API_TIMEOUT_MS,
     });
   }
-  
+
   async getProfile(): Promise<UserProfile>;
   async getOrganizations(memberId: string): Promise<Organization[]>;
 }
@@ -252,7 +256,6 @@ export async function fetchWorkItemsForOrganization(
     // No project param - queries all projects
   }
 ): Promise<WorkItem[]> {
-  
   // WIQL query WITHOUT project filter
   const wiqlQuery = `
     SELECT [System.Id], [System.TeamProject], [System.WorkItemType], ...
@@ -264,13 +267,13 @@ export async function fetchWorkItemsForOrganization(
       AND [System.ChangedDate] <= '${year}-12-31'
     ORDER BY [System.ChangedDate] DESC
   `;
-  
+
   // POST to org-level endpoint (no project in path)
   const queryResult = await client.post<WorkItemQueryResult>(
-    `/_apis/wit/wiql`,  // Note: no /{project}/ prefix
+    `/_apis/wit/wiql`, // Note: no /{project}/ prefix
     { query: wiqlQuery }
   );
-  
+
   // Batch fetch details...
   return workItems;
 }
@@ -288,47 +291,51 @@ export async function fetchPullRequestsForProject(
   client: AzureDevOpsClient,
   options: {
     project: string;
-    userId: string;      // Pre-resolved user UUID
+    userId: string; // Pre-resolved user UUID
     year: number;
-    targetBranches?: string[];  // Default: ['main', 'master']
+    targetBranches?: string[]; // Default: ['main', 'master']
   }
 ): Promise<{
   pullRequests: GitPullRequest[];
-  activeRepositoryIds: Set<string>;  // Repos with user PRs
+  activeRepositoryIds: Set<string>; // Repos with user PRs
 }> {
-  
-  const { project, userId, year, targetBranches = ['main', 'master'] } = options;
+  const {
+    project,
+    userId,
+    year,
+    targetBranches = ["main", "master"],
+  } = options;
   const allPRs: GitPullRequest[] = [];
   const activeRepoIds = new Set<string>();
-  
+
   for (const branch of targetBranches) {
     // Project-level endpoint (no repo in path)
     const url = `/${project}/_apis/git/pullrequests`;
     const params = {
-      'searchCriteria.creatorId': userId,
-      'searchCriteria.status': 'completed',
-      'searchCriteria.targetRefName': `refs/heads/${branch}`,
-      '$top': 1000,
+      "searchCriteria.creatorId": userId,
+      "searchCriteria.status": "completed",
+      "searchCriteria.targetRefName": `refs/heads/${branch}`,
+      $top: 1000,
     };
-    
+
     const response = await client.get<GitPullRequestResponse>(url, params);
-    
+
     // Filter by year (client-side, API doesn't support date filter)
-    const yearPRs = response.value.filter(pr => {
+    const yearPRs = response.value.filter((pr) => {
       const closedYear = new Date(pr.closedDate).getFullYear();
       return closedYear === year;
     });
-    
+
     // Collect unique repos
     for (const pr of yearPRs) {
       if (pr.repository?.id) {
         activeRepoIds.add(pr.repository.id);
       }
     }
-    
+
     allPRs.push(...yearPRs);
   }
-  
+
   return {
     pullRequests: deduplicatePRs(allPRs),
     activeRepositoryIds: activeRepoIds,
@@ -338,7 +345,7 @@ export async function fetchPullRequestsForProject(
 
 ### 3.5 Updated Aggregator: `src/lib/azure-devops/aggregator.ts`
 
-**No changes required** to the aggregator logic. It already accepts arrays of commits, PRs, and work items and computes stats from them. The optimization is in *how* we fetch the data, not how we aggregate it.
+**No changes required** to the aggregator logic. It already accepts arrays of commits, PRs, and work items and computes stats from them. The optimization is in _how_ we fetch the data, not how we aggregate it.
 
 ---
 
@@ -353,20 +360,22 @@ export async function fetchPullRequestsForProject(
 // Response: DiscoveryResult
 
 export async function GET(request: NextRequest) {
-  const pat = request.headers.get('authorization')?.replace('Bearer ', '');
-  const year = parseInt(searchParams.get('year') || new Date().getFullYear().toString());
-  
+  const pat = request.headers.get("authorization")?.replace("Bearer ", "");
+  const year = parseInt(
+    searchParams.get("year") || new Date().getFullYear().toString()
+  );
+
   // 1. Get user profile
   const globalClient = new GlobalAzureDevOpsClient(pat);
   const profile = await globalClient.getProfile();
-  
+
   // 2. Get organizations
   const orgs = await globalClient.getOrganizations(profile.id);
-  
+
   // 3. For each org, get projects
   // 4. For each project, use PR API to find active repos
   const result = await discoverAll(pat, year);
-  
+
   return NextResponse.json(result);
 }
 ```
@@ -374,6 +383,7 @@ export async function GET(request: NextRequest) {
 ### 4.2 Updated Stats Endpoint: `src/app/api/stats/route.ts`
 
 **Current flow**:
+
 1. Receive org, projects[], repositories[] as params
 2. Fetch commits/PRs for each repo in parallel
 3. Fetch work items for each project
@@ -384,7 +394,7 @@ export async function GET(request: NextRequest) {
 ```typescript
 export async function GET(request: NextRequest) {
   // ... existing param parsing ...
-  
+
   // NEW: If no repositories specified, use discovery to find active repos
   let effectiveRepositories = repositories;
   if (!repositories || repositories.length === 0) {
@@ -393,28 +403,28 @@ export async function GET(request: NextRequest) {
     );
     effectiveRepositories = discovery.repositories;
   }
-  
+
   // NEW: Use org-level work item fetch instead of per-project
   const workItemsPromises = [...new Set(projects)].map(project =>
     fetchWorkItemsForOrganization(client, { year, userEmail })
   );
   // Actually, we only need ONE call per org now!
   const workItems = await fetchWorkItemsForOrganization(client, { year, userEmail });
-  
+
   // NEW: Use project-level PR fetch instead of per-repo
   const prResults = await Promise.all(
-    projects.map(project => 
+    projects.map(project =>
       fetchPullRequestsForProject(client, { project, userId, year })
     )
   );
   const allPRs = prResults.flatMap(r => r.pullRequests);
   const activeRepoIds = new Set(prResults.flatMap(r => [...r.activeRepositoryIds]));
-  
+
   // Commits still per-repo, but only for ACTIVE repos
   const commitsPromises = effectiveRepositories
     .filter(repo => activeRepoIds.has(repo.id) || activeRepoIds.size === 0)
     .map(repo => fetchCommits(...));
-  
+
   // ... rest of aggregation unchanged ...
 }
 ```
@@ -423,12 +433,12 @@ export async function GET(request: NextRequest) {
 
 **No breaking changes to response contract.** The `WrappedStats` and `ClientWrappedStats` interfaces remain identical. Changes are purely internal to how data is fetched.
 
-| Endpoint | Request Changes | Response Changes |
-|----------|-----------------|------------------|
-| `GET /api/stats` | Optional: `repositories` param becomes optional (auto-discovered if missing) | None |
-| `GET /api/discover` | **NEW ENDPOINT** | Returns `DiscoveryResult` |
-| `GET /api/projects` | None | None |
-| `GET /api/repositories` | None | None |
+| Endpoint                | Request Changes                                                              | Response Changes          |
+| ----------------------- | ---------------------------------------------------------------------------- | ------------------------- |
+| `GET /api/stats`        | Optional: `repositories` param becomes optional (auto-discovered if missing) | None                      |
+| `GET /api/discover`     | **NEW ENDPOINT**                                                             | Returns `DiscoveryResult` |
+| `GET /api/projects`     | None                                                                         | None                      |
+| `GET /api/repositories` | None                                                                         | None                      |
 
 ---
 
@@ -541,29 +551,34 @@ But this is **optional** — the current manual selection flow continues to work
 ## Part 7: Implementation Checklist
 
 ### Phase 1: Global Discovery Client
+
 - [ ] Create `GlobalAzureDevOpsClient` class in `client.ts`
 - [ ] Add `fetchUserProfile()` function
 - [ ] Add `fetchOrganizations()` function
 - [ ] Add types: `UserProfile`, `Organization`
 
 ### Phase 2: Organization-Level Work Items
+
 - [ ] Add `fetchWorkItemsForOrganization()` in `workItems.ts`
 - [ ] Update WIQL query to remove project filter
 - [ ] Add `[System.TeamProject]` to SELECT fields
 - [ ] Update stats route to use org-level fetch
 
 ### Phase 3: Project-Level Pull Requests
+
 - [ ] Add `fetchPullRequestsForProject()` in `pullRequests.ts`
 - [ ] Return both PRs and active repository IDs
 - [ ] Update stats route to use project-level fetch
 - [ ] Filter commit fetching to active repos only
 
 ### Phase 4: Discovery Endpoint (Optional)
+
 - [ ] Create `src/app/api/discover/route.ts`
 - [ ] Implement full discovery flow
 - [ ] Add caching for discovery results
 
 ### Phase 5: Testing
+
 - [ ] Test with single org, single project
 - [ ] Test with multiple orgs
 - [ ] Test with large project (many repos)
@@ -574,13 +589,13 @@ But this is **optional** — the current manual selection flow continues to work
 
 ## Part 8: Risks and Mitigations
 
-| Risk | Mitigation |
-|------|------------|
-| Org-level WIQL may have different pagination limits | Test with large datasets; implement batching if needed |
-| Project-level PR API may not support all filter combinations | Fall back to per-repo fetch if filters fail |
-| Rate limiting on parallel org calls | Implement p-limit (concurrency: 3-5) |
-| User may have PRs as reviewer but not creator | Add second call with `reviewerId` filter if desired |
-| Some repos may have direct pushes without PRs | Accept 80-90% coverage or add optional commit probe |
+| Risk                                                         | Mitigation                                             |
+| ------------------------------------------------------------ | ------------------------------------------------------ |
+| Org-level WIQL may have different pagination limits          | Test with large datasets; implement batching if needed |
+| Project-level PR API may not support all filter combinations | Fall back to per-repo fetch if filters fail            |
+| Rate limiting on parallel org calls                          | Implement p-limit (concurrency: 3-5)                   |
+| User may have PRs as reviewer but not creator                | Add second call with `reviewerId` filter if desired    |
+| Some repos may have direct pushes without PRs                | Accept 80-90% coverage or add optional commit probe    |
 
 ---
 
@@ -621,15 +636,15 @@ The project-level Pull Requests API supports server-side filtering:
 GET https://dev.azure.com/{org}/{project}/_apis/git/pullrequests?api-version=7.0
 ```
 
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `searchCriteria.creatorId` | Filter by PR creator UUID | `abc-123-def` |
-| `searchCriteria.reviewerId` | Filter by reviewer UUID | `abc-123-def` |
-| `searchCriteria.status` | Filter by status | `completed`, `active`, `abandoned`, `all` |
-| `searchCriteria.targetRefName` | Filter by target branch | `refs/heads/main` |
-| `searchCriteria.sourceRefName` | Filter by source branch | `refs/heads/feature/x` |
-| `$top` | Max results per page | `1000` |
-| `$skip` | Pagination offset | `0` |
+| Parameter                      | Description               | Example                                   |
+| ------------------------------ | ------------------------- | ----------------------------------------- |
+| `searchCriteria.creatorId`     | Filter by PR creator UUID | `abc-123-def`                             |
+| `searchCriteria.reviewerId`    | Filter by reviewer UUID   | `abc-123-def`                             |
+| `searchCriteria.status`        | Filter by status          | `completed`, `active`, `abandoned`, `all` |
+| `searchCriteria.targetRefName` | Filter by target branch   | `refs/heads/main`                         |
+| `searchCriteria.sourceRefName` | Filter by source branch   | `refs/heads/feature/x`                    |
+| `$top`                         | Max results per page      | `1000`                                    |
+| `$skip`                        | Pagination offset         | `0`                                       |
 
 **Note**: Date filtering (`minTime`/`maxTime`) is NOT supported server-side. Date filtering must be done client-side after fetching results.
 
@@ -637,11 +652,11 @@ GET https://dev.azure.com/{org}/{project}/_apis/git/pullrequests?api-version=7.0
 
 ## Appendix: API Base URLs
 
-| Purpose | Base URL | Auth Required |
-|---------|----------|---------------|
-| Main APIs (projects, repos, PRs, commits) | `https://dev.azure.com/{organization}` | PAT (Basic) |
-| Identity APIs (user resolution) | `https://vssps.dev.azure.com/{organization}` | PAT (Basic) |
-| **Profile/Accounts (Global)** | `https://app.vssps.visualstudio.com` | PAT (Basic) |
-| User Entitlements | `https://vsaex.dev.azure.com/{organization}` | PAT (Basic) |
+| Purpose                                   | Base URL                                     | Auth Required |
+| ----------------------------------------- | -------------------------------------------- | ------------- |
+| Main APIs (projects, repos, PRs, commits) | `https://dev.azure.com/{organization}`       | PAT (Basic)   |
+| Identity APIs (user resolution)           | `https://vssps.dev.azure.com/{organization}` | PAT (Basic)   |
+| **Profile/Accounts (Global)**             | `https://app.vssps.visualstudio.com`         | PAT (Basic)   |
+| User Entitlements                         | `https://vsaex.dev.azure.com/{organization}` | PAT (Basic)   |
 
 The **Profile/Accounts** APIs are the key enablers for auto-discovery — they don't require knowing the organization upfront.
