@@ -22,13 +22,26 @@ async function demonstrateCaching() {
 
   // Validate required env vars
   const org = process.env.ADO_ORGANIZATION;
-  const project = process.env.ADO_PROJECT;
-  const repo = process.env.ADO_REPOSITORY;
+  const reposEnv = process.env.ADO_REPOSITORIES;
   const pat = process.env.ADO_PAT;
+
+  // Parse first project/repo pair from ADO_REPOSITORIES
+  let project: string | undefined;
+  let repo: string | undefined;
+  if (reposEnv) {
+    const firstPair = reposEnv.split(",")[0]?.trim();
+    if (firstPair) {
+      const [p, ...repoParts] = firstPair.split("/");
+      project = p?.trim();
+      repo = repoParts.join("/")?.trim();
+    }
+  }
 
   if (!org || !project || !repo || !pat) {
     console.error("❌ Missing required environment variables:");
-    console.error("   ADO_ORGANIZATION, ADO_PROJECT, ADO_REPOSITORY, ADO_PAT");
+    console.error(
+      "   ADO_ORGANIZATION, ADO_REPOSITORIES (project/repo format), ADO_PAT"
+    );
     console.error("\nPlease create a .env file with these values.");
     process.exit(1);
   }

@@ -34,20 +34,16 @@ async function testAPIIntegration() {
   const appConfig = loadAndValidateConfig();
   printConfig(appConfig);
 
-  // Use first project for single-project API calls
-  const project = appConfig.projects[0];
-
-  // Build repositories array from legacy single repository config
-  const repositories = appConfig.projects.map((p) => ({
-    project: p,
-    repository: appConfig.repository,
-  }));
+  // Derive unique projects from repositories
+  const projects = Array.from(
+    new Set(appConfig.repositories.map((r) => r.project))
+  );
 
   // Convert to WrappedConfig format
   const config: WrappedConfig = {
     organization: appConfig.organization,
-    projects: appConfig.projects,
-    repositories: repositories,
+    projects: projects,
+    repositories: appConfig.repositories,
     pat: appConfig.pat,
     year: appConfig.year,
     userEmail: appConfig.userEmail,
@@ -95,8 +91,10 @@ async function testAPIIntegration() {
       organization: config.organization,
       pat: config.pat,
     });
+    // Use first project for work items test
+    const firstProject = projects[0];
     const workItems = await fetchWorkItems(client, {
-      project: project,
+      project: firstProject,
       year: config.year,
       userEmail: config.userEmail,
     });

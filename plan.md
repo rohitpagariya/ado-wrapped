@@ -124,8 +124,7 @@ src/
 
 - `organization` (required)
 - `projects` (required) - comma-separated list of project names
-- `project` (legacy, optional) - single project name (for backwards compatibility)
-- `repository` (required)
+- `repositories` (required) - JSON array of `{project, repository}` objects
 - `year` (required)
 - `userEmail` (optional)
 

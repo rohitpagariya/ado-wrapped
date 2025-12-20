@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { exportToJSON, exportToMarkdown } from "@/lib/export";
-import { migrateConfig } from "@/lib/config-utils";
 import type { ClientWrappedStats } from "@/types";
 import type { WrappedConfig } from "@/components/ConfigForm";
 import { Download, FileJson, FileText, Check, Loader2 } from "lucide-react";
@@ -116,9 +115,7 @@ export default function WrappedPage() {
           return;
         }
 
-        const rawConfig = JSON.parse(configStr);
-        // Use centralized migration for legacy formats
-        const config: WrappedConfig = migrateConfig(rawConfig);
+        const config: WrappedConfig = JSON.parse(configStr);
 
         // Validate that we have required fields including PAT
         if (

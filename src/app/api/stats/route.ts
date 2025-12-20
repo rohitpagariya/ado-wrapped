@@ -65,32 +65,25 @@ export async function GET(request: NextRequest) {
     // Get parameters from URL search params
     const searchParams = request.nextUrl.searchParams;
     let organization = searchParams.get("organization");
-    // Support both 'projects' (comma-separated) and legacy 'project' param
     let projectsParam = searchParams.get("projects");
-    let legacyProject = searchParams.get("project");
-    // New: 'repositories' as JSON array of {project, repository} objects
+    // 'repositories' as JSON array of {project, repository} objects
     let repositoriesParam = searchParams.get("repositories");
-    // Legacy: single 'repository' param (for backwards compatibility)
-    let legacyRepository = searchParams.get("repository");
     let year = searchParams.get("year");
     let userEmail = searchParams.get("userEmail");
 
-    // Parse projects array from comma-separated string or legacy single project
+    // Parse projects array from comma-separated string
     let projects: string[] = [];
     if (projectsParam) {
       projects = projectsParam
         .split(",")
         .map((p) => p.trim())
         .filter(Boolean);
-    } else if (legacyProject) {
-      projects = [legacyProject];
     }
 
-    // Parse repositories array from JSON or legacy single repository
+    // Parse repositories array from JSON
     let projectRepos: ProjectRepoCombo[] = [];
     if (repositoriesParam) {
       try {
-        // New format: JSON array of {project, repository} objects
         console.log(
           `[${requestId}] 📦 Raw repositories param: ${repositoriesParam.substring(
             0,
@@ -117,16 +110,6 @@ export async function GET(request: NextRequest) {
           { status: 400 }
         );
       }
-    } else if (legacyRepository && projects.length > 0) {
-      // Legacy format: single repository applied to all projects (old behavior)
-      // This tries every repo in every project - less efficient but backwards compatible
-      projectRepos = projects.map((p) => ({
-        project: p,
-        repository: legacyRepository,
-      }));
-      console.log(
-        `[${requestId}] 📦 Legacy mode: trying ${legacyRepository} in ${projects.length} project(s)`
-      );
     }
 
     // If no parameters provided, try to use server-side config from .env
@@ -143,14 +126,8 @@ export async function GET(request: NextRequest) {
       if (validation.valid) {
         pat = pat || serverConfig.pat;
         organization = serverConfig.organization;
-        projects = serverConfig.projects;
-        // Legacy server config uses single repository - apply to all projects
-        if (serverConfig.repository) {
-          projectRepos = projects.map((p) => ({
-            project: p,
-            repository: serverConfig.repository,
-          }));
-        }
+        // Use repositories directly from config - each repo is only queried in its project
+        projectRepos = serverConfig.repositories;
         year = serverConfig.year.toString();
         userEmail = userEmail || serverConfig.userEmail || null;
         console.log(`[${requestId}] ✅ Using server config`);
@@ -192,7 +169,7 @@ export async function GET(request: NextRequest) {
           required: [
             "pat (Authorization header or .env)",
             "organization",
-            "repositories (JSON array of {project, repository}) or legacy: projects + repository",
+            "repositories (JSON array of {project, repository})",
             "year",
           ],
         },

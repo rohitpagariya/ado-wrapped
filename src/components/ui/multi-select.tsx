@@ -19,6 +19,10 @@ interface MultiSelectProps {
   loading?: boolean;
   className?: string;
   error?: boolean;
+  /** Label for "X selected" text, e.g., "projects" or "repositories" */
+  selectionLabel?: string;
+  /** Label when showing no items in dropdown, e.g., "No projects found" */
+  emptyLabel?: string;
 }
 
 export function MultiSelect({
@@ -30,6 +34,8 @@ export function MultiSelect({
   loading = false,
   className,
   error = false,
+  selectionLabel = "items",
+  emptyLabel = "No items found",
 }: MultiSelectProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const containerRef = React.useRef<HTMLDivElement>(null);
@@ -88,13 +94,15 @@ export function MultiSelect({
       >
         <span className="truncate text-left">
           {loading ? (
-            <span className="text-slate-500">Loading projects...</span>
+            <span className="text-slate-500">Loading {selectionLabel}...</span>
           ) : selected.length === 0 ? (
             <span className="text-slate-500">{placeholder}</span>
           ) : selected.length === 1 ? (
             selectedLabels[0]
           ) : (
-            <span>{selected.length} projects selected</span>
+            <span>
+              {selected.length} {selectionLabel} selected
+            </span>
           )}
         </span>
         <ChevronDown
@@ -156,7 +164,7 @@ export function MultiSelect({
           <div className="max-h-60 overflow-auto py-1">
             {options.length === 0 ? (
               <div className="px-3 py-2 text-sm text-slate-500">
-                No projects found
+                {emptyLabel}
               </div>
             ) : (
               options.map((option) => {

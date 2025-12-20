@@ -49,14 +49,14 @@ Fill in values in `.env` to pre-populate the form:
 ```bash
 # Copy example and edit with your values
 cp .env.example .env
-# Edit .env with your ADO_ORGANIZATION, ADO_PROJECTS, ADO_REPOSITORY, ADO_PAT, ADO_YEAR
+# Edit .env with your ADO_ORGANIZATION, ADO_REPOSITORIES, ADO_PAT, ADO_YEAR
 ```
 
 When `.env` values are present:
 
 - ✅ Form fields are pre-populated (except PAT for security)
 - ✅ Just enter your PAT and click Generate
-- ✅ Supports multiple projects via `ADO_PROJECTS=Project1,Project2`
+- ✅ Supports multiple repos via `ADO_REPOSITORIES=Project1/repo1,Project2/repo2`
 
 **2. Manual Configuration (Default)**
 

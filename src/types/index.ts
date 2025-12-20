@@ -15,16 +15,6 @@ export interface WrappedConfig {
   userEmail?: string; // Optional: filter by specific user
 }
 
-// Legacy config format for migration (single repository string)
-export interface LegacyWrappedConfig {
-  pat: string;
-  organization: string;
-  projects: string[];
-  repository: string; // Old format: single repository name
-  year: number;
-  userEmail?: string;
-}
-
 // Complete stats response (server-side, includes all computed fields)
 export interface WrappedStats {
   meta: MetaInfo;

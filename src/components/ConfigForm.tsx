@@ -14,10 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { MultiSelect, MultiSelectOption } from "@/components/ui/multi-select";
 import { useToast } from "@/hooks/use-toast";
-import { migrateConfig } from "@/lib/config-utils";
+import { X } from "lucide-react";
 import type { WrappedConfig, ProjectRepository } from "@/types";
 
-// Re-export for backward compatibility
 export type { WrappedConfig } from "@/types";
 
 interface ConfigFormProps {
@@ -46,7 +45,8 @@ export function ConfigForm({
 }: ConfigFormProps) {
   const { toast } = useToast();
   const [config, setConfig] = useState<WrappedConfig>(() => {
-    // Start with default values
+    // Start with default values only - we no longer load from localStorage
+    // Config is saved to localStorage on submit for potential future use
     const defaults: WrappedConfig = {
       pat: "",
       organization: "",
@@ -55,22 +55,6 @@ export function ConfigForm({
       year: new Date().getFullYear() - 1, // Default to last year
       userEmail: "",
     };
-
-    // Try to load from localStorage (non-sensitive config persisted across sessions)
-    // The PAT is explicitly excluded when saving (see handleSubmit) for security.
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("ado-wrapped-config");
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          // Use centralized migration for legacy formats
-          const migrated = migrateConfig(parsed);
-          return { ...defaults, ...migrated };
-        } catch (e) {
-          console.error("Failed to parse saved config:", e);
-        }
-      }
-    }
 
     return defaults;
   });
@@ -88,7 +72,6 @@ export function ConfigForm({
   const [reposError, setReposError] = useState<string | null>(null);
 
   // Apply initialConfig from server (env variables) when provided
-  // This runs after mount, allowing server config to override localStorage
   useEffect(() => {
     if (initialConfig) {
       console.log("📋 Pre-populating form with server config:", initialConfig);
@@ -421,6 +404,8 @@ export function ConfigForm({
               disabled={loading || !config.organization || !config.pat}
               loading={projectsLoading}
               error={!!errors.projects}
+              selectionLabel="projects"
+              emptyLabel="No projects found"
             />
             {errors.projects && (
               <p className="text-sm text-destructive">{errors.projects}</p>
@@ -458,6 +443,8 @@ export function ConfigForm({
               disabled={loading || config.projects.length === 0}
               loading={reposLoading}
               error={!!errors.repositories}
+              selectionLabel="repositories"
+              emptyLabel="No repositories found"
             />
             {errors.repositories && (
               <p className="text-sm text-destructive">{errors.repositories}</p>
@@ -466,6 +453,36 @@ export function ConfigForm({
               <p className="text-sm text-amber-500">
                 Could not load repositories: {reposError}
               </p>
+            )}
+            {/* Display selected repositories */}
+            {config.repositories.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {config.repositories.map((repo) => (
+                  <span
+                    key={`${repo.project}/${repo.repository}`}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+                  >
+                    <span className="text-slate-400">{repo.project}/</span>
+                    {repo.repository}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const newRepos = config.repositories.filter(
+                          (r) =>
+                            r.project !== repo.project ||
+                            r.repository !== repo.repository
+                        );
+                        handleChange("repositories", newRepos);
+                      }}
+                      className="hover:text-cyan-100"
+                      disabled={loading}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
             )}
             <p className="text-xs text-slate-500">
               Select one or more repositories to analyze.

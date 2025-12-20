@@ -4,6 +4,7 @@
  */
 
 import { config as loadEnv } from "dotenv";
+import type { ProjectRepository } from "@/types";
 
 // Load .env file if it exists
 loadEnv();
@@ -11,8 +12,7 @@ loadEnv();
 export interface AppConfig {
   // Azure DevOps Connection
   organization: string;
-  projects: string[]; // Array of project names (supports multiple projects)
-  repository: string;
+  repositories: ProjectRepository[]; // Array of {project, repository} combos
   pat: string;
 
   // Filtering Options
@@ -31,22 +31,23 @@ export interface AppConfig {
 }
 
 /**
- * Parse projects from environment variable
- * Supports both ADO_PROJECTS (comma-separated) and legacy ADO_PROJECT (single)
+ * Parse repositories from environment variable.
+ * Format: "project1/repo1,project2/repo2" (comma-separated project/repo pairs)
  */
-function parseProjects(): string[] {
-  const projectsEnv = process.env.ADO_PROJECTS;
-  const legacyProjectEnv = process.env.ADO_PROJECT;
+function parseRepositories(): ProjectRepository[] {
+  const reposEnv = process.env.ADO_REPOSITORIES;
 
-  if (projectsEnv) {
-    // New format: comma-separated list
-    return projectsEnv
+  if (reposEnv) {
+    return reposEnv
       .split(",")
-      .map((p) => p.trim())
-      .filter(Boolean);
-  } else if (legacyProjectEnv) {
-    // Legacy format: single project
-    return [legacyProjectEnv.trim()];
+      .map((pair) => pair.trim())
+      .filter(Boolean)
+      .map((pair) => {
+        const [project, ...repoParts] = pair.split("/");
+        const repository = repoParts.join("/"); // Handle repos with / in name
+        return { project: project.trim(), repository: repository.trim() };
+      })
+      .filter((r) => r.project && r.repository);
   }
 
   return [];
@@ -59,8 +60,7 @@ export function loadConfig(): AppConfig {
   return {
     // Required settings
     organization: process.env.ADO_ORGANIZATION || "",
-    projects: parseProjects(),
-    repository: process.env.ADO_REPOSITORY || "",
+    repositories: parseRepositories(),
     pat: process.env.ADO_PAT || "",
 
     // Optional filtering
@@ -92,12 +92,10 @@ export function validateConfig(config: AppConfig): {
     errors.push("ADO_ORGANIZATION is required");
   }
 
-  if (!config.projects || config.projects.length === 0) {
-    errors.push("ADO_PROJECTS (or ADO_PROJECT) is required");
-  }
-
-  if (!config.repository) {
-    errors.push("ADO_REPOSITORY is required");
+  if (!config.repositories || config.repositories.length === 0) {
+    errors.push(
+      "ADO_REPOSITORIES is required (format: project1/repo1,project2/repo2)"
+    );
   }
 
   if (!config.pat) {
@@ -145,8 +143,10 @@ export function loadAndValidateConfig(): AppConfig {
 export function printConfig(config: AppConfig): void {
   console.log("📋 Configuration:");
   console.log(`   Organization: ${config.organization}`);
-  console.log(`   Projects: ${config.projects.join(", ")}`);
-  console.log(`   Repository: ${config.repository}`);
+  console.log(`   Repositories: ${config.repositories.length} configured`);
+  config.repositories.forEach((r) => {
+    console.log(`      - ${r.project}/${r.repository}`);
+  });
   console.log(
     `   PAT: ${config.pat ? "***" + config.pat.slice(-4) : "(not set)"}`
   );
@@ -157,21 +157,4 @@ export function printConfig(config: AppConfig): void {
   console.log(`   Include Work Items: ${config.includeWorkItems}`);
   console.log(`   Include Builds: ${config.includeBuilds}`);
   console.log();
-}
-
-/**
- * Migrate legacy config format (project: string) to new format (projects: string[])
- * Use this when loading config from storage that may be in old format.
- */
-export function migrateConfigToProjectsArray<T extends Record<string, any>>(
-  config: T
-): T {
-  if ("project" in config && !("projects" in config)) {
-    const { project, ...rest } = config;
-    return {
-      ...rest,
-      projects: project ? [project as string] : [],
-    } as unknown as T;
-  }
-  return config;
 }
